@@ -58,18 +58,10 @@ export async function POST(request: Request) {
   }
 
   let resumeText: string;
-  let debugInfo: { totalPages: number; rawLength: number; trimmedLength: number; preview: string };
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocumentProxy(buf);
-    const { totalPages, text } = await extractText(pdf, { mergePages: true });
-    debugInfo = {
-      totalPages,
-      rawLength: text.length,
-      trimmedLength: text.trim().length,
-      preview: text.slice(0, 200),
-    };
-    console.error("[pdf-debug]", JSON.stringify(debugInfo));
+    const { text } = await extractText(pdf, { mergePages: true });
     resumeText = text.trim();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -78,9 +70,7 @@ export async function POST(request: Request) {
 
   if (!resumeText) {
     return Response.json(
-      {
-        error: `PDF 没有可提取的文本。Debug: ${JSON.stringify(debugInfo)}`,
-      },
+      { error: "PDF 没有可提取的文本（常见于「可画」/ Canva 等设计工具导出的 PDF）。请用文本版简历或 Word 导出的 PDF 重试。" },
       { status: 400 }
     );
   }
@@ -97,7 +87,7 @@ export async function POST(request: Request) {
   try {
     const resp = await client.messages.create({
       model: MODEL,
-      max_tokens: 8000,
+      max_tokens: 3500,
       system: RESUME_IMPORT_SYSTEM,
       messages: [{ role: "user", content: buildResumeImportUserMessage(resumeText) }],
     });

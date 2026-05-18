@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 import { createClient } from "@/lib/supabase/server";
 import { tryIncrementUsage } from "@/lib/db/usage";
 import { listMyProjects } from "@/lib/db/projects";
@@ -59,11 +59,10 @@ export async function POST(request: Request) {
 
   let resumeText: string;
   try {
-    const buf = Buffer.from(await file.arrayBuffer());
-    const parser = new PDFParse({ data: new Uint8Array(buf) });
-    const result = await parser.getText();
-    resumeText = (result.text || "").trim();
-    await parser.destroy();
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const pdf = await getDocumentProxy(buf);
+    const { text } = await extractText(pdf, { mergePages: true });
+    resumeText = text.trim();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ error: `PDF 解析失败：${msg}` }, { status: 400 });

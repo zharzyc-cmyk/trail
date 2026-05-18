@@ -13,7 +13,21 @@ export function stripCodeFence(s: string): string {
     t = t.replace(/^```(?:json)?\s*/i, "");
     t = t.replace(/\s*```\s*$/, "");
   }
-  return t.trim();
+  t = t.trim();
+  // Claude 偶尔在 JSON 前后加说明文字。截取 JSON 主体（object 或 array）。
+  const objStart = t.indexOf("{");
+  const objEnd = t.lastIndexOf("}");
+  const arrStart = t.indexOf("[");
+  const arrEnd = t.lastIndexOf("]");
+  const hasObj = objStart !== -1 && objEnd > objStart;
+  const hasArr = arrStart !== -1 && arrEnd > arrStart;
+  if (hasObj && hasArr) {
+    // 两种都有，挑先出现的那个起点
+    return objStart < arrStart ? t.slice(objStart, objEnd + 1) : t.slice(arrStart, arrEnd + 1);
+  }
+  if (hasObj) return t.slice(objStart, objEnd + 1);
+  if (hasArr) return t.slice(arrStart, arrEnd + 1);
+  return t;
 }
 
 export function parseJsonFromLLM<T>(text: string): T {

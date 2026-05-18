@@ -130,5 +130,12 @@ function stripCodeFence(s: string): string {
     t = t.replace(/^```(?:json)?\s*/i, "");
     t = t.replace(/\s*```\s*$/, "");
   }
-  return t.trim();
+  t = t.trim();
+  // Claude 偶尔在 JSON 前后加说明文字，截取第一个 { 到最后一个 }。
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    return t.slice(start, end + 1);
+  }
+  return t;
 }

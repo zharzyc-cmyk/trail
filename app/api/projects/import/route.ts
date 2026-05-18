@@ -12,8 +12,7 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "deepseek-v4-pro";
-const BASE_URL = "https://api.deepseek.com/anthropic";
+const MODEL = "claude-sonnet-4-6";
 const MAX_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT_CHARS = 30_000;
 
@@ -77,17 +76,17 @@ export async function POST(request: Request) {
   const truncated = resumeText.length > MAX_TEXT_CHARS;
   if (truncated) resumeText = resumeText.slice(0, MAX_TEXT_CHARS);
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: "服务端未配置 DEEPSEEK_API_KEY" }, { status: 500 });
+    return Response.json({ error: "服务端未配置 ANTHROPIC_API_KEY" }, { status: 500 });
   }
-  const client = new Anthropic({ apiKey, baseURL: BASE_URL });
+  const client = new Anthropic({ apiKey });
 
   let parsed: { profile: string; resumeBase: string; projects: ImportedProject[] };
   try {
     const resp = await client.messages.create({
       model: MODEL,
-      max_tokens: 3500,
+      max_tokens: 4096,
       system: RESUME_IMPORT_SYSTEM,
       messages: [{ role: "user", content: buildResumeImportUserMessage(resumeText) }],
     });

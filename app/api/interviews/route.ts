@@ -19,8 +19,7 @@ import { parseJsonFromLLM, JsonParseError } from "@/lib/ai/json";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "deepseek-v4-pro";
-const BASE_URL = "https://api.deepseek.com/anthropic";
+const MODEL = "claude-sonnet-4-6";
 
 type Body = {
   application_id?: string | null;
@@ -130,21 +129,21 @@ export async function extractSignalsForInterview(args: {
   }));
   const candidateIds = new Set(candidates.map((c) => c.id));
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       signals: [],
       signalsSkipped: "ai_failed",
-      warning: "服务端未配置 DEEPSEEK_API_KEY",
+      warning: "服务端未配置 ANTHROPIC_API_KEY",
     };
   }
 
   let rawSignals: RawSignal[];
   try {
-    const client = new Anthropic({ apiKey, baseURL: BASE_URL });
+    const client = new Anthropic({ apiKey });
     const resp = await client.messages.create({
       model: MODEL,
-      max_tokens: 4000,
+      max_tokens: 4096,
       system: INTERVIEW_SIGNALS_SYSTEM,
       messages: [
         {

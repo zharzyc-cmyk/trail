@@ -9,8 +9,7 @@ import { RESUME_TAILORING_SYSTEM, buildTailoringUserMessage } from "@/lib/prompt
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "deepseek-v4-pro";
-const BASE_URL = "https://api.deepseek.com/anthropic";
+const MODEL = "claude-sonnet-4-6";
 
 type Body = {
   jd: string;
@@ -59,17 +58,17 @@ export async function POST(request: Request) {
     position: body.position,
   });
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return Response.json({ error: "服务端未配置 DEEPSEEK_API_KEY" }, { status: 500 });
+    return Response.json({ error: "服务端未配置 ANTHROPIC_API_KEY" }, { status: 500 });
   }
 
-  const client = new Anthropic({ apiKey, baseURL: BASE_URL });
+  const client = new Anthropic({ apiKey });
 
   try {
     const resp = await client.messages.create({
       model: MODEL,
-      max_tokens: 8000,
+      max_tokens: 4096,
       system: RESUME_TAILORING_SYSTEM,
       messages: [{ role: "user", content: userMessage }],
     });
@@ -119,9 +118,9 @@ export async function POST(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/401|invalid_api_key|authentication/i.test(msg)) {
-      return Response.json({ error: "服务端 DeepSeek Key 失效，请联系管理员" }, { status: 500 });
+      return Response.json({ error: "服务端 Anthropic Key 失效，请联系管理员" }, { status: 500 });
     }
-    return Response.json({ error: `DeepSeek 调用失败：${msg}` }, { status: 500 });
+    return Response.json({ error: `AI 调用失败：${msg}` }, { status: 500 });
   }
 }
 

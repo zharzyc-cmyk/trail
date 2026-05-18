@@ -138,9 +138,10 @@ export async function extractSignalsForInterview(args: {
     };
   }
 
+  const baseURL = process.env.ANTHROPIC_BASE_URL || undefined;
   let rawSignals: RawSignal[];
   try {
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, baseURL });
     const resp = await client.messages.create({
       model: MODEL,
       max_tokens: 4096,

@@ -62,8 +62,8 @@ export async function POST(request: Request) {
   if (!apiKey) {
     return Response.json({ error: "服务端未配置 ANTHROPIC_API_KEY" }, { status: 500 });
   }
-
-  const client = new Anthropic({ apiKey });
+  const baseURL = process.env.ANTHROPIC_BASE_URL || undefined;
+  const client = new Anthropic({ apiKey, baseURL });
 
   try {
     const resp = await client.messages.create({

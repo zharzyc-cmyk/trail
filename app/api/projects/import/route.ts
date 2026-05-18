@@ -58,19 +58,18 @@ export async function POST(request: Request) {
   }
 
   let resumeText: string;
+  let debugInfo: { totalPages: number; rawLength: number; trimmedLength: number; preview: string };
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocumentProxy(buf);
     const { totalPages, text } = await extractText(pdf, { mergePages: true });
-    console.error(
-      "[pdf-debug]",
-      JSON.stringify({
-        totalPages,
-        rawLength: text.length,
-        trimmedLength: text.trim().length,
-        preview: text.slice(0, 200),
-      })
-    );
+    debugInfo = {
+      totalPages,
+      rawLength: text.length,
+      trimmedLength: text.trim().length,
+      preview: text.slice(0, 200),
+    };
+    console.error("[pdf-debug]", JSON.stringify(debugInfo));
     resumeText = text.trim();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -79,7 +78,9 @@ export async function POST(request: Request) {
 
   if (!resumeText) {
     return Response.json(
-      { error: "PDF 没有可提取的文本（可能是扫描件/图片版简历）" },
+      {
+        error: `PDF 没有可提取的文本。Debug: ${JSON.stringify(debugInfo)}`,
+      },
       { status: 400 }
     );
   }

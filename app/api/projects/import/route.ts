@@ -61,7 +61,16 @@ export async function POST(request: Request) {
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocumentProxy(buf);
-    const { text } = await extractText(pdf, { mergePages: true });
+    const { totalPages, text } = await extractText(pdf, { mergePages: true });
+    console.error(
+      "[pdf-debug]",
+      JSON.stringify({
+        totalPages,
+        rawLength: text.length,
+        trimmedLength: text.trim().length,
+        preview: text.slice(0, 200),
+      })
+    );
     resumeText = text.trim();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

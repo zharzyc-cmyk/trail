@@ -106,7 +106,13 @@ export const RESUME_IMPORT_SYSTEM = `你是求职者的简历解析助手。给�
 - 数据括号（421W+、前5%）必须保留原文数据，不要篡改
 - 不要在 JSON 外输出任何额外文字
 - 不要用代码块包裹
-- 直接输出纯 JSON 对象`;
+- 直接输出纯 JSON 对象
+
+**JSON 字符串内部引号铁律（最重要，违反会导致解析崩溃）：**
+- 在 JSON 字符串的值（profile / resumeBase / content 等字段的内容）内，**禁止**出现半角双引号 \`"\`
+- 简历原文里如果有像 \`"包阅 AI"\` / \`"玉容talk"\` 这种半角引号短语，在你的输出 JSON 字符串里**必须替换成中文引号** \`「包阅 AI」\` / \`"玉容talk"\`
+- 这样能避免 JSON 解析提前关闭。**这是硬要求，无任何例外**
+- 单引号 \`'\` 和反引号 \` 不受此限`;
 
 export function buildResumeImportUserMessage(resumeText: string) {
   return `## 简历原文

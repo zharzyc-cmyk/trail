@@ -97,7 +97,23 @@ export async function POST(request: Request) {
       .join("\n")
       .trim();
     const cleaned = stripCodeFence(text);
-    const obj = JSON.parse(cleaned);
+    let obj: { profile?: unknown; resumeBase?: unknown; projects?: unknown };
+    try {
+      obj = JSON.parse(cleaned);
+    } catch (parseErr) {
+      const parseMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      // 临时调试：返回 raw 文本附近的字符，方便定位语法错误
+      const m = /position (\d+)/.exec(parseMsg);
+      const pos = m ? Number(m[1]) : -1;
+      const window = pos >= 0 ? cleaned.slice(Math.max(0, pos - 100), pos + 100) : cleaned.slice(0, 300);
+      return Response.json(
+        {
+          error: `JSON 解析失败：${parseMsg}\n附近内容: ${window}`,
+          rawPreview: cleaned.slice(0, 800),
+        },
+        { status: 502 }
+      );
+    }
     if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
       throw new Error("not an object");
     }

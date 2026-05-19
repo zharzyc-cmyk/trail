@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Project = {
   id: string;
@@ -51,6 +52,7 @@ const EMPTY_PREVIEW: PreviewState = { profile: null, resumeBase: null, projects:
 export default function ProfilePage() {
   const [profile, setProfile] = useState("");
   const [resumeBase, setResumeBase] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [newName, setNewName] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -58,11 +60,14 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [importNote, setImportNote] = useState("");
   const [preview, setPreview] = useState<PreviewState>(EMPTY_PREVIEW);
   const [committing, setCommitting] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState("");
   const [signalsByProject, setSignalsByProject] = useState<Record<string, EnrichedSignal[]>>({});
   const [expandedSignals, setExpandedSignals] = useState<Set<string>>(new Set());
   const [loadingSignals, setLoadingSignals] = useState<Set<string>>(new Set());
@@ -77,6 +82,7 @@ export default function ProfilePage() {
         if (pr && !pr.error) {
           setProfile(pr.self_profile || "");
           setResumeBase(pr.resume_base || "");
+          setPhotoUrl(pr.photo_url || null);
         }
         if (Array.isArray(ps)) setProjects(ps);
       } finally {
@@ -92,6 +98,65 @@ export default function ProfilePage() {
       body: JSON.stringify({ self_profile: profile, resume_base: resumeBase }),
     });
     if (r.ok) setSavedAt(new Date().toLocaleTimeString());
+  }
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoError("");
+    if (!/^image\//.test(file.type)) {
+      setPhotoError("只支持图片文件（jpg / png / webp）");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setPhotoError(`图片过大（${(file.size / 1024 / 1024).toFixed(1)} MB），上限 3 MB`);
+      return;
+    }
+    setUploadingPhoto(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setPhotoError("未登录");
+        return;
+      }
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) {
+        setPhotoError(`上传失败：${upErr.message}（如果是 bucket 不存在，请在 Supabase Dashboard 创建 public 的 avatars bucket）`);
+        return;
+      }
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = `${pub.publicUrl}?v=${Date.now()}`;
+      const r = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_url: url }),
+      });
+      if (!r.ok) {
+        setPhotoError("写入 profile 失败");
+        return;
+      }
+      setPhotoUrl(url);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function removePhoto() {
+    setPhotoError("");
+    const r = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photo_url: null }),
+    });
+    if (r.ok) setPhotoUrl(null);
   }
 
   async function addProject() {
@@ -335,6 +400,52 @@ export default function ProfilePage() {
           <Button onClick={saveProfileText}>保存 Profile + 简历</Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>简历头像</CardTitle>
+          <CardDescription>
+            可选。会出现在 AI 定制简历的右上角。建议 1 寸 / 2 寸蓝底白底证件照，jpg/png，3 MB 以内。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="h-[115px] w-[90px] overflow-hidden rounded border border-zinc-300 bg-zinc-50">
+              {photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoUrl} alt="头像" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">未上传</div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={onPickPhoto}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingPhoto}
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  {uploadingPhoto ? "上传中..." : photoUrl ? "更换头像" : "上传头像"}
+                </Button>
+                {photoUrl && (
+                  <Button variant="ghost" size="sm" onClick={removePhoto}>
+                    移除
+                  </Button>
+                )}
+              </div>
+              {photoError && <p className="text-xs text-red-600">{photoError}</p>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

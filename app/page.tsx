@@ -11,6 +11,9 @@ export default async function Home() {
 
   return (
     <div className="space-y-12">
+      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        🔔 本站目前面向有 VPN 的求职社区试用 · 国内直连访问受限 · 完整体验请使用代理
+      </div>
       <section className="space-y-4 pt-8">
         <h1 className="text-4xl font-semibold tracking-tight text-zinc-900">
           每一次投递，都让下一次更准。

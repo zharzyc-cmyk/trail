@@ -4,6 +4,7 @@ export type UserProfile = {
   user_id: string;
   self_profile: string;
   resume_base: string;
+  photo_url: string | null;
   updated_at: string;
 };
 
@@ -26,13 +27,18 @@ export async function getMyProfile(): Promise<UserProfile | null> {
       user_id: user.id,
       self_profile: "",
       resume_base: "",
+      photo_url: null,
       updated_at: new Date().toISOString(),
     };
   }
   return data as UserProfile;
 }
 
-export async function saveMyProfile(patch: { self_profile?: string; resume_base?: string }) {
+export async function saveMyProfile(patch: {
+  self_profile?: string;
+  resume_base?: string;
+  photo_url?: string | null;
+}) {
   const supabase = await createClient();
   const {
     data: { user },

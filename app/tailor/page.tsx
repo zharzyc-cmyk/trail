@@ -16,10 +16,10 @@ type TailorResult = {
   excludedProjects?: { name: string; reason: string }[];
   changeLog: string[];
   resumeMarkdown: string;
-  resumeHtmlFragments?: {
-    coreCompetenciesHtml?: string;
-    internshipsHtml?: string;
-  };
+  name?: string;
+  contactHtml?: string;
+  sections?: { title: string; html: string }[];
+  photoUrl?: string | null;
   applicationId?: string;
   usage?: { current: number; limit: number };
 };
@@ -96,15 +96,16 @@ export default function TailorPage() {
   }
 
   function handlePrintPdf() {
-    const f = result?.resumeHtmlFragments;
-    if (!f?.coreCompetenciesHtml && !f?.internshipsHtml) {
-      alert("AI 没返回可打印的 HTML 片段，请重新生成一次");
+    if (!result?.sections || result.sections.length === 0) {
+      alert("AI 没返回可打印的章节，请重新生成一次");
       return;
     }
     const html = renderResumeHtml(
       {
-        coreCompetenciesHtml: f?.coreCompetenciesHtml || "",
-        internshipsHtml: f?.internshipsHtml || "",
+        name: result.name || "",
+        contactHtml: result.contactHtml || "",
+        photoUrl: result.photoUrl ?? null,
+        sections: result.sections,
       },
       { title: `${company}_${position}` }
     );
@@ -229,7 +230,7 @@ export default function TailorPage() {
                   </Button>
                   <Button
                     onClick={handlePrintPdf}
-                    disabled={!result.resumeHtmlFragments?.coreCompetenciesHtml}
+                    disabled={!result.sections || result.sections.length === 0}
                   >
                     打印 / 保存 PDF
                   </Button>

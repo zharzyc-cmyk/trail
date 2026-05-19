@@ -14,7 +14,11 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
-    const body = (await req.json()) as { self_profile?: string; resume_base?: string };
+    const body = (await req.json()) as {
+      self_profile?: string;
+      resume_base?: string;
+      photo_url?: string | null;
+    };
     await saveMyProfile(body);
     return Response.json({ ok: true });
   } catch (e) {

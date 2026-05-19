@@ -1,6 +1,8 @@
-export type ResumeHtmlFragments = {
-  coreCompetenciesHtml: string;
-  internshipsHtml: string;
+export type TailoredResume = {
+  name: string;
+  contactHtml: string;
+  photoUrl: string | null;
+  sections: { title: string; html: string }[];
 };
 
 const TEMPLATE = `<!DOCTYPE html>
@@ -23,6 +25,7 @@ const TEMPLATE = `<!DOCTYPE html>
   li { margin-bottom: 2px; }
   .bp { font-weight: bold; color: #1c3d6e; }
   strong { color: #c0392b; }
+  .section-body { margin-bottom: 4px; }
   @media print { .no-print { display: none !important; } }
 </style>
 </head>
@@ -30,41 +33,13 @@ const TEMPLATE = `<!DOCTYPE html>
 
 <div class="header">
   <div class="header-text">
-    <div class="name">黄 子 强</div>
-    <div class="contact">邮箱：H2459969448@163.com ｜ 电话：15907945713 ｜ 上海 ｜ <strong>可实习 6 个月，立即到岗</strong></div>
+    <div class="name">{{NAME}}</div>
+    <div class="contact">{{CONTACT}}</div>
   </div>
-  <img class="photo" src="{{PHOTO_URL}}" alt="照片">
+  {{PHOTO}}
 </div>
 
-<h2>核心能力</h2>
-<ul>
-{{CORE_COMPETENCIES}}
-</ul>
-
-<h2>教育背景</h2>
-<div class="entry-header">
-  <span>华东师范大学（985）｜数字经济（硕士）</span>
-  <span class="entry-date">2026.09 - 2028.06</span>
-</div>
-<div class="entry-header">
-  <span>上海电机学院（一本招生）｜国际经济与贸易（中美合作）</span>
-  <span class="entry-date">2022.06 - 2026.09</span>
-</div>
-<ul>
-  <li>GPA <strong>3.85 / 4.5</strong>（前 5%），上海电机学院 2023-2024 二等奖学金、上海市调查分析大赛市二等奖；<span class="bp">主修课程</span>：商务统计、微观经济学、宏观经济学、全英文会计学。</li>
-</ul>
-
-<h2>实习经历</h2>
-
-{{INTERNSHIPS}}
-
-<h2>专业技能</h2>
-<ul>
-  <li><span class="bp">AI 工具</span>：ChatGPT、Deep Seek、Claude（日常重度使用，覆盖内容生产 / 数据分析 / 方案输出）；</li>
-  <li><span class="bp">数据分析</span>：SQL（用户行为分析）、SPSS（AB 测试 / 聚类）、Python（GMV 预测模型，准确率 85%）；</li>
-  <li><span class="bp">内容生产</span>：剪映、Photoshop（脚本撰写 / 视频剪辑 / 封面设计）；<span class="bp">行业研究</span>：撰写《社区电商内容趋势分析报告》；</li>
-  <li><span class="bp">语言</span>：CET6（英文工作语言），全英文课程学习。</li>
-</ul>
+{{SECTIONS}}
 
 <script>
   window.addEventListener('load', () => {
@@ -76,15 +51,24 @@ const TEMPLATE = `<!DOCTYPE html>
 </html>`;
 
 export function renderResumeHtml(
-  fragments: ResumeHtmlFragments,
-  opts: { title?: string; photoUrl?: string } = {}
+  resume: TailoredResume,
+  opts: { title?: string } = {}
 ): string {
-  const title = opts.title || "黄子强 - 简历";
-  const photoUrl = opts.photoUrl || "/photo.jpg";
+  const title = opts.title || `${resume.name || "简历"} - 简历`;
+  const photoTag = resume.photoUrl
+    ? `<img class="photo" src="${escapeAttr(resume.photoUrl)}" alt="照片">`
+    : "";
+  const sectionsHtml = resume.sections
+    .map(
+      (s) =>
+        `<h2>${escapeText(s.title)}</h2>\n<div class="section-body">${s.html}</div>`
+    )
+    .join("\n");
   return TEMPLATE.replace(/{{TITLE}}/g, escapeAttr(title))
-    .replace(/{{PHOTO_URL}}/g, escapeAttr(photoUrl))
-    .replace(/{{CORE_COMPETENCIES}}/g, fragments.coreCompetenciesHtml || "")
-    .replace(/{{INTERNSHIPS}}/g, fragments.internshipsHtml || "");
+    .replace(/{{NAME}}/g, escapeText(resume.name || ""))
+    .replace(/{{CONTACT}}/g, resume.contactHtml || "")
+    .replace(/{{PHOTO}}/g, photoTag)
+    .replace(/{{SECTIONS}}/g, sectionsHtml);
 }
 
 function escapeAttr(s: string): string {
@@ -94,6 +78,20 @@ function escapeAttr(s: string): string {
         return "&amp;";
       case '"':
         return "&quot;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+    }
+    return c;
+  });
+}
+
+function escapeText(s: string): string {
+  return s.replace(/[&<>]/g, (c) => {
+    switch (c) {
+      case "&":
+        return "&amp;";
       case "<":
         return "&lt;";
       case ">":

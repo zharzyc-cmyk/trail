@@ -87,10 +87,9 @@ export async function POST(request: Request) {
       excludedProjects?: { name: string; reason: string }[];
       changeLog: string[];
       resumeMarkdown: string;
-      resumeHtmlFragments?: {
-        coreCompetenciesHtml?: string;
-        internshipsHtml?: string;
-      };
+      name?: string;
+      contactHtml?: string;
+      sections?: { title: string; html: string }[];
     };
     try {
       parsed = JSON.parse(cleaned);
@@ -112,6 +111,7 @@ export async function POST(request: Request) {
 
     return Response.json({
       ...parsed,
+      photoUrl: profile?.photo_url ?? null,
       applicationId: app.id,
       usage: { current: usage.current, limit: usage.limit },
     });

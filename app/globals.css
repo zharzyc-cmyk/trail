@@ -4,8 +4,83 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --color-brand-50:  #EFF4FE;
+  --color-brand-100: #DBEAFE;
+  --color-brand-200: #BFDBFE;
+  --color-brand-300: #93C5FD;
+  --color-brand-500: #2563EB;
+  --color-brand-600: #1D4ED8;
+  --color-brand-700: #1C3D6E;
+  --color-brand-900: #0A1F44;
+
+  --color-accent-500: #6366F1;
+  --color-accent-600: #4F46E5;
+  --color-accent-700: #4338CA;
 }
+
+html, body { min-height: 100%; }
 
 body {
   font-family: var(--font-sans);
+  color: #0F172A;
+  background: transparent;
+  position: relative;
+}
+
+/* 光影流体背景（CSS-only 模拟，不引 SDK） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 12% 20%, rgba(79, 70, 229, 0.18), transparent 70%),
+    radial-gradient(50% 40% at 88% 75%, rgba(37, 99, 235, 0.16), transparent 65%),
+    radial-gradient(70% 60% at 50% 50%, rgba(99, 102, 241, 0.08), transparent 80%),
+    #F5F7FB;
+  animation: drift 24s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-2%, 1%, 0) scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+}
+
+/* 主标题渐变文字工具类 */
+.text-gradient-brand {
+  background: linear-gradient(90deg, #1D4ED8 0%, #4F46E5 50%, #7C3AED 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* 半透明玻璃卡 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(191, 219, 254, 0.6);
+  border-radius: 12px;
+}
+
+/* 轻量入场动效 */
+@keyframes fade-in-up {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up { animation: none; }
 }

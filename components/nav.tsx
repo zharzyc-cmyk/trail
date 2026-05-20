@@ -58,22 +58,44 @@ export function Nav() {
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-blue-100/60 bg-white/70 backdrop-blur-md md:flex">
       <div className="px-5 py-5">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 shadow-lg shadow-blue-600/30 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-indigo-600/40">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <Link href="/" className="group flex items-center gap-3">
+          <span
+            className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-fuchsia-500 shadow-xl shadow-indigo-500/40 ring-1 ring-white/40 ring-inset transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-fuchsia-500/50 group-hover:scale-[1.04]"
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+              style={{ filter: "drop-shadow(0 0 4px rgba(255,255,255,0.55))" }}
+            >
               <path
                 d="M3 20 L9 13 L14 16 L20 5"
                 stroke="white"
-                strokeWidth="2.5"
+                strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="20" cy="5" r="2.4" fill="white" />
+              <circle cx="20" cy="5" r="2.8" fill="white" className="animate-logo-pulse" />
             </svg>
+            {/* outer glow ring */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -inset-0.5 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, rgba(99,102,241,0.5), rgba(217,70,239,0.5), rgba(99,102,241,0.5))",
+                filter: "blur(8px)",
+                zIndex: -1,
+              }}
+            />
           </span>
           <span className="flex flex-col leading-tight">
             <span className="text-base font-bold tracking-tight text-[#1C3D6E]">Trail</span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">求职轨迹</span>
+            <span className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
+              求职 · 轨迹
+            </span>
           </span>
         </Link>
       </div>

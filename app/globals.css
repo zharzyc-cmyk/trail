@@ -81,6 +81,28 @@ body::before {
   animation: fade-in-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+@keyframes fade-in-stagger {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-stagger {
+  animation: fade-in-stagger 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Logo 终点圆点脉动 */
+@keyframes logo-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.25); }
+}
+
+.animate-logo-pulse {
+  transform-origin: center;
+  animation: logo-pulse 2.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in-up { animation: none; }
+  .animate-fade-in-up,
+  .animate-fade-in-stagger,
+  .animate-logo-pulse { animation: none; }
 }

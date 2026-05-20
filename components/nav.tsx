@@ -57,13 +57,24 @@ export function Nav() {
 
   return (
     <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-blue-100/60 bg-white/70 backdrop-blur-md md:flex">
-      <div className="px-6 py-5">
-        <Link
-          href="/"
-          className="block text-lg font-semibold tracking-tight text-[#1C3D6E]"
-        >
-          求职轨迹
-          <span className="ml-1 text-sm font-normal text-blue-500">· Trail</span>
+      <div className="px-5 py-5">
+        <Link href="/" className="group flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 shadow-lg shadow-blue-600/30 transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-indigo-600/40">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M3 20 L9 13 L14 16 L20 5"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="20" cy="5" r="2.4" fill="white" />
+            </svg>
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-base font-bold tracking-tight text-[#1C3D6E]">Trail</span>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">求职轨迹</span>
+          </span>
         </Link>
       </div>
 

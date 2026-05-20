@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import { FolderKanban, Sparkles, MessageSquare, ArrowRight } from "lucide-react";
+import {
+  FolderKanban,
+  Sparkles,
+  MessageSquare,
+  ArrowRight,
+  Check,
+  X,
+} from "lucide-react";
 
 function GithubIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11.04 11.04 0 0 1 5.79 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.4-5.26 5.69.41.35.78 1.05.78 2.12v3.15c0 .31.21.66.79.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z" />
     </svg>
   );
@@ -25,35 +26,40 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   return (
-    <div className="space-y-14">
+    <div className="space-y-20 pb-12">
       <div className="rounded-lg border border-amber-300/70 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-800 backdrop-blur">
-        🔔 本站目前面向有 VPN 的求职社区试用 · 国内直连访问受限 · 完整体验请使用代理
+        🔔 本站目前面向有 VPN 的求职社区试用 · 国内直连访问受限
       </div>
 
-      <section className="space-y-5 pt-4">
-        <p className="text-sm font-medium uppercase tracking-widest text-blue-600">
-          Trail · 求职轨迹 v0.4
+      {/* Hero */}
+      <section className="space-y-7 pt-6">
+        <p className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50/60 px-3 py-1 text-xs font-medium tracking-wide text-blue-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+          Trail · 求职操作系统 v0.4
         </p>
-        <h1 className="text-5xl font-semibold tracking-tight text-gradient-brand md:text-6xl">
-          每一次投递，<br className="md:hidden" />
-          都让下一次更准。
+        <h1 className="text-5xl font-semibold leading-[1.15] tracking-tight md:text-6xl">
+          <span className="text-gradient-brand">每个岗位</span>
+          <span className="text-[#0F172A]">，都值得</span>
+          <br />
+          <span className="text-[#0F172A]">一份</span>
+          <span className="text-gradient-brand">专属简历。</span>
         </h1>
         <p className="max-w-2xl text-lg leading-8 text-slate-600">
-          求职轨迹是一个会写、会练、会复盘的求职操作系统——把 AI 内容生成与求职数据资产打通，
-          让每一次投递的反馈反向训练下一次的简历和面试表达。
+          粘贴 JD，30 秒生成。从此告别<span className="text-slate-900 font-medium">「一份简历投天下」</span>。
+          每次面试的失分点反向沉淀回项目库——下一次投递更准。
         </p>
-        <div className="flex flex-wrap gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           {user ? (
             <Link href="/tailor">
               <Button size="lg" className="gap-2">
-                继续使用 <ArrowRight size={16} />
+                立刻定制简历 <ArrowRight size={16} />
               </Button>
             </Link>
           ) : (
             <>
               <Link href="/register">
                 <Button size="lg" className="gap-2">
-                  免费注册 <ArrowRight size={16} />
+                  免费开始 <ArrowRight size={16} />
                 </Button>
               </Link>
               <Link href="/login">
@@ -67,80 +73,142 @@ export default async function Home() {
             href="https://github.com/zharzyc-cmyk/trail"
             target="_blank"
             rel="noopener noreferrer"
+            className="ml-1"
           >
             <Button variant="ghost" size="lg" className="gap-2">
               <GithubIcon size={16} /> View on GitHub
             </Button>
           </a>
         </div>
-        <p className="text-xs text-slate-500">
-          每用户每天 5 次免费简历定制 · 数据加密存储 · 邮箱注册无需信用卡
-        </p>
       </section>
 
+      {/* 三步工作流 */}
       <section className="grid gap-4 md:grid-cols-3">
-        <Card className="group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-          <CardHeader>
+        <Card className="group transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+          <CardContent className="space-y-3 p-6">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-100">
                 <FolderKanban size={20} />
               </span>
-              <CardTitle>① 沉淀</CardTitle>
+              <h3 className="text-base font-semibold text-[#1C3D6E]">建档</h3>
             </div>
-          </CardHeader>
-          <CardContent className="text-sm text-slate-600">
-            上传你的 Profile、基础简历、项目历程库——一次录入，所有简历都从这里生发。
+            <p className="text-sm leading-6 text-slate-600">
+              上传一份完整简历 PDF，AI 自动拆成 Profile、基础简历、项目历程库三块。
+              <span className="text-slate-500">从此你的项目素材有一个唯一可信源。</span>
+            </p>
           </CardContent>
         </Card>
-        <Card className="group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-          <CardHeader>
+        <Card className="group transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+          <CardContent className="space-y-3 p-6">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
                 <Sparkles size={20} />
               </span>
-              <CardTitle>② 生成</CardTitle>
+              <h3 className="text-base font-semibold text-[#1C3D6E]">定制</h3>
             </div>
-          </CardHeader>
-          <CardContent className="text-sm text-slate-600">
-            粘贴 JD，AI 自动从项目库挑选最相关的素材，重写 bullet，输出定制简历，一键下载 .docx。
+            <p className="text-sm leading-6 text-slate-600">
+              粘贴 JD，AI 按岗位需求从项目库挑出最相关的素材、重写 bullet、保留你简历的原版式。
+              <span className="text-slate-500">一岗一份，自动归档。</span>
+            </p>
           </CardContent>
         </Card>
-        <Card className="group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-          <CardHeader>
+        <Card className="group transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+          <CardContent className="space-y-3 p-6">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-purple-50 text-purple-600 transition-colors group-hover:bg-purple-100">
                 <MessageSquare size={20} />
               </span>
-              <CardTitle>③ 复盘</CardTitle>
+              <h3 className="text-base font-semibold text-[#1C3D6E]">复盘</h3>
             </div>
-          </CardHeader>
-          <CardContent className="text-sm text-slate-600">
-            每场面试 AI 自动抽出涉及的项目 + 失分点，反向标注到项目库——让下次面试预热靶向更准。
+            <p className="text-sm leading-6 text-slate-600">
+              每场面试 AI 自动抽出涉及的项目 + 失分点，反向标注到项目库。
+              <span className="text-slate-500">下一场面试，预热靶向更准。</span>
+            </p>
           </CardContent>
         </Card>
       </section>
 
-      <section className="glass-card p-6 md:p-8">
-        <h2 className="mb-3 text-lg font-semibold text-[#1C3D6E]">和 ChatGPT 改简历的区别</h2>
-        <ul className="space-y-2 text-sm text-slate-700">
-          <li className="flex gap-2">
-            <span className="text-slate-400">·</span>
-            <span>
-              <span className="font-medium text-slate-900">ChatGPT</span>：每次从零开始，上次修改不沉淀
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-blue-500">·</span>
-            <span>
-              <span className="font-medium text-[#1C3D6E]">求职轨迹</span>：你的项目历程库 + 投递反馈数据，AI 越用越懂你
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-blue-500">·</span>
-            <span>一份基础资料 → 多个岗位定制 → 全部归档到投递看板</span>
-          </li>
-        </ul>
+      {/* 工作流对比 */}
+      <section className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold tracking-tight text-[#1C3D6E]">
+            为什么不是另一个 AI 写简历工具
+          </h2>
+          <p className="text-sm text-slate-500">
+            真正的「一岗一简历」不是把同一份简历喂给 AI 改几次——是一整套工作流。
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-slate-200/80 bg-white/60 p-6 backdrop-blur">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+              传统改简历
+            </p>
+            <ul className="space-y-3 text-sm leading-6 text-slate-600">
+              <li className="flex items-start gap-2">
+                <X size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                <span>每次粘 JD 都从零开始描述自己</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <X size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                <span>项目讲不深、数据答不出、上次改完没沉淀</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <X size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                <span>面试踩坑后只剩聊天记录，下次照样犯</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <X size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                <span>投了 N 家，回头说不清哪版有效</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="glass-card relative overflow-hidden p-6">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-blue-600">
+              Trail 工作流
+            </p>
+            <ul className="space-y-3 text-sm leading-6 text-slate-700">
+              <li className="flex items-start gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <span>项目库一次建好，每次 JD 自动挑选最相关</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <span>简历按你 PDF 的原版式生成，不被套模板</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <span>面试问答 → AI 反向标注项目库失分点</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                <span>所有投递自动归档到看板，反推哪版有效</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </section>
+
+      {/* 最终 CTA */}
+      {!user && (
+        <section className="rounded-2xl border border-blue-200/60 bg-gradient-to-br from-blue-50/80 via-indigo-50/60 to-purple-50/40 p-8 backdrop-blur">
+          <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold text-[#1C3D6E]">
+                把你的项目库建起来，让下一次投递更准
+              </h3>
+              <p className="text-sm text-slate-600">邮箱注册无需信用卡 · 数据加密存储</p>
+            </div>
+            <Link href="/register">
+              <Button size="lg" className="gap-2">
+                免费开始 <ArrowRight size={16} />
+              </Button>
+            </Link>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

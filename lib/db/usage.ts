@@ -65,3 +65,28 @@ export async function tryIncrementUsage(
     limit: DAILY_LIMIT,
   };
 }
+
+export async function rollbackUsage(userId: string, userEmail?: string | null): Promise<void> {
+  if (isUnlimitedEmail(userEmail)) return;
+  try {
+    const admin = createAdminClient();
+    const today = new Date(new Date().getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = (admin.from as any).bind(admin)("usage_daily");
+    const { data: existing } = await table
+      .select("count")
+      .eq("user_id", userId)
+      .eq("date", today)
+      .maybeSingle();
+    const current = (existing as { count?: number } | null)?.count ?? 0;
+    if (current > 0) {
+      const { error } = await table
+        .update({ count: current - 1 })
+        .eq("user_id", userId)
+        .eq("date", today);
+      if (error) console.error("[rollbackUsage] update failed:", error);
+    }
+  } catch (e) {
+    console.error("[rollbackUsage] unexpected:", e);
+  }
+}

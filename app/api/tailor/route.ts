@@ -1,10 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { tryIncrementUsage } from "@/lib/db/usage";
+import { tryIncrementUsage, rollbackUsage } from "@/lib/db/usage";
 import { getMyProfile } from "@/lib/db/profile";
 import { listMyProjects } from "@/lib/db/projects";
 import { createApplication } from "@/lib/db/applications";
-import { RESUME_TAILORING_SYSTEM, buildTailoringUserMessage } from "@/lib/prompts/resume-tailoring";
+import {
+  RESUME_TAILORING_SYSTEM,
+  buildStableUserContext,
+  buildVariableUserContext,
+} from "@/lib/prompts/resume-tailoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -58,10 +62,12 @@ export async function POST(request: Request) {
       return Response.json({ error: `读取用户数据失败：${msg}` }, { status: 500 });
     }
 
-    const userMessage = buildTailoringUserMessage({
+    const stableContext = buildStableUserContext({
       profile: profile?.self_profile || "",
       resumeBase: profile?.resume_base || "",
       projects: projects.map((p) => ({ name: p.name, content: p.content })),
+    });
+    const variableContext = buildVariableUserContext({
       jd: body.jd,
       companyName: body.company,
       position: body.position,
@@ -69,6 +75,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      await rollbackUsage(user.id, user.email);
       return Response.json({ error: "服务端未配置 ANTHROPIC_API_KEY" }, { status: 500 });
     }
     const baseURL = process.env.ANTHROPIC_BASE_URL || undefined;
@@ -77,10 +84,39 @@ export async function POST(request: Request) {
     try {
       const resp = await client.messages.create({
         model: MODEL,
-        max_tokens: 4096,
-        system: RESUME_TAILORING_SYSTEM,
-        messages: [{ role: "user", content: userMessage }],
+        max_tokens: 2048,
+        system: [
+          {
+            type: "text",
+            text: RESUME_TAILORING_SYSTEM,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: stableContext,
+                cache_control: { type: "ephemeral" },
+              },
+              { type: "text", text: variableContext },
+            ],
+          },
+        ],
       });
+
+      console.log("[/api/tailor] usage:", {
+        input: resp.usage.input_tokens,
+        output: resp.usage.output_tokens,
+        cache_read: resp.usage.cache_read_input_tokens,
+        cache_creation: resp.usage.cache_creation_input_tokens,
+        stop_reason: resp.stop_reason,
+      });
+      if (resp.stop_reason === "max_tokens") {
+        console.warn("[/api/tailor] output truncated at max_tokens=2048");
+      }
 
       const text = resp.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -103,6 +139,7 @@ export async function POST(request: Request) {
       try {
         parsed = JSON.parse(cleaned);
       } catch {
+        await rollbackUsage(user.id, user.email);
         return Response.json(
           { error: "AI 返回的内容不是合法 JSON，请重试", raw: text.slice(0, 500) },
           { status: 502 }
@@ -126,6 +163,7 @@ export async function POST(request: Request) {
       });
     } catch (e) {
       console.error("[/api/tailor] LLM/post-process error:", e);
+      await rollbackUsage(user.id, user.email);
       const msg = e instanceof Error ? e.message : String(e);
       if (/401|invalid_api_key|authentication/i.test(msg)) {
         return Response.json({ error: "服务端 Anthropic Key 失效，请联系管理员" }, { status: 500 });

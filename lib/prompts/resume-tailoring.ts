@@ -65,27 +65,13 @@ sections 数组中的 title 字段和顺序必须与用户「基础简历」（r
 4. **JSON 字符串内引号铁律**：sections 的 html 字段会包含双引号（HTML 属性），**HTML 属性的双引号必须转义为 \`\\"\`**（标准 JSON 转义）。**禁止**在 JSON 字符串内出现未转义的半角双引号 \`"\`。简历原文如有形如 \`"包阅 AI"\` 的中文短语用引号包裹时，输出时改成中文引号 \`「包阅 AI」\`
 5. 不要在 JSON 外输出任何额外文字，不要用代码块包裹 JSON，直接输出纯 JSON 对象`;
 
-export function buildTailoringUserMessage(opts: {
+export function buildStableUserContext(opts: {
   profile: string;
   resumeBase: string;
   projects: { name: string; content: string }[];
-  jd: string;
-  companyName: string;
-  position: string;
 }) {
-  const { profile, resumeBase, projects, jd, companyName, position } = opts;
-  return `## 目标岗位
-
-公司：${companyName}
-岗位：${position}
-
-## JD 原文
-
-${jd}
-
----
-
-## 用户个人 Profile
+  const { profile, resumeBase, projects } = opts;
+  return `## 用户个人 Profile
 
 ${profile || "（未提供，请提示用户在资料页补充）"}
 
@@ -95,7 +81,23 @@ ${resumeBase || "（未提供，请提示用户在资料页补充）"}
 
 ## 项目历程库
 
-${projects.length === 0 ? "（未提供任何项目，请提示用户在资料页上传项目历程）" : projects.map((p) => `### ${p.name}\n\n${p.content}`).join("\n\n---\n\n")}
+${projects.length === 0 ? "（未提供任何项目，请提示用户在资料页上传项目历程）" : projects.map((p) => `### ${p.name}\n\n${p.content}`).join("\n\n---\n\n")}`;
+}
+
+export function buildVariableUserContext(opts: {
+  jd: string;
+  companyName: string;
+  position: string;
+}) {
+  const { jd, companyName, position } = opts;
+  return `## 目标岗位
+
+公司：${companyName}
+岗位：${position}
+
+## JD 原文
+
+${jd}
 
 ---
 

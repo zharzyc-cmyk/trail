@@ -9,11 +9,22 @@ import {
   buildStableUserContext,
   buildVariableUserContext,
 } from "@/lib/prompts/resume-tailoring";
+import {
+  PROJECT_SELECTOR_SYSTEM,
+  buildProjectSelectorUserMessage,
+} from "@/lib/prompts/project-selector";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-sonnet-4-6";
+const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
+type Selection = {
+  jdAnalysis: string;
+  selectedProjects: string[];
+  excludedProjects?: { name: string; reason: string }[];
+};
 
 type Body = {
   jd: string;
@@ -62,17 +73,6 @@ export async function POST(request: Request) {
       return Response.json({ error: `读取用户数据失败：${msg}` }, { status: 500 });
     }
 
-    const stableContext = buildStableUserContext({
-      profile: profile?.self_profile || "",
-      resumeBase: profile?.resume_base || "",
-      projects: projects.map((p) => ({ name: p.name, content: p.content })),
-    });
-    const variableContext = buildVariableUserContext({
-      jd: body.jd,
-      companyName: body.company,
-      position: body.position,
-    });
-
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       await rollbackUsage(user.id, user.email);
@@ -80,6 +80,75 @@ export async function POST(request: Request) {
     }
     const baseURL = process.env.ANTHROPIC_BASE_URL || undefined;
     const client = new Anthropic({ apiKey, baseURL });
+
+    // ===== 阶段 1：Haiku 筛选最相关的 3-5 个项目 =====
+    let selection: Selection | null = null;
+    if (projects.length > 0) {
+      try {
+        const selectorResp = await client.messages.create({
+          model: HAIKU_MODEL,
+          max_tokens: 1024,
+          system: PROJECT_SELECTOR_SYSTEM,
+          messages: [
+            {
+              role: "user",
+              content: buildProjectSelectorUserMessage({
+                jd: body.jd,
+                companyName: body.company,
+                position: body.position,
+                projects: projects.map((p) => ({
+                  name: p.name,
+                  summary: p.content.slice(0, 200),
+                })),
+              }),
+            },
+          ],
+        });
+        console.log("[/api/tailor] selector usage:", {
+          input: selectorResp.usage.input_tokens,
+          output: selectorResp.usage.output_tokens,
+          stop_reason: selectorResp.stop_reason,
+        });
+        const selectorText = selectorResp.content
+          .filter((b): b is Anthropic.TextBlock => b.type === "text")
+          .map((b) => b.text)
+          .join("\n")
+          .trim();
+        selection = JSON.parse(stripCodeFence(selectorText)) as Selection;
+      } catch (e) {
+        console.warn("[/api/tailor] selector failed, fallback to all projects:", e);
+        selection = null;
+      }
+    }
+
+    // 兜底：Haiku 没挑到 / 失败 / 项目库为空 → 全量项目送 Sonnet（退化为旧行为）
+    const projectsForSonnet =
+      selection && selection.selectedProjects.length > 0
+        ? projects.filter((p) => selection!.selectedProjects.includes(p.name))
+        : projects;
+    if (
+      selection &&
+      selection.selectedProjects.length > 0 &&
+      projectsForSonnet.length === 0
+    ) {
+      // Haiku 挑了名字但都对不上库（说明它幻觉了名字），用全量兜底
+      console.warn(
+        "[/api/tailor] selector picked names not in library, fallback to all:",
+        selection.selectedProjects
+      );
+    }
+
+    // ===== 阶段 2：Sonnet 用筛选后的小 context 生成完整简历 =====
+    const stableContext = buildStableUserContext({
+      profile: profile?.self_profile || "",
+      resumeBase: profile?.resume_base || "",
+      projects: projectsForSonnet.map((p) => ({ name: p.name, content: p.content })),
+    });
+    const variableContext = buildVariableUserContext({
+      jd: body.jd,
+      companyName: body.company,
+      position: body.position,
+    });
 
     try {
       const resp = await client.messages.create({
@@ -107,12 +176,14 @@ export async function POST(request: Request) {
         ],
       });
 
-      console.log("[/api/tailor] usage:", {
+      console.log("[/api/tailor] tailor usage:", {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
         cache_read: resp.usage.cache_read_input_tokens,
         cache_creation: resp.usage.cache_creation_input_tokens,
         stop_reason: resp.stop_reason,
+        selected_count: projectsForSonnet.length,
+        total_count: projects.length,
       });
       if (resp.stop_reason === "max_tokens") {
         console.warn("[/api/tailor] output truncated at max_tokens=2048");
@@ -146,17 +217,27 @@ export async function POST(request: Request) {
         );
       }
 
+      // 优先用 Haiku 阶段 1 的筛选输出（更精炼），Sonnet 的对应字段作为兜底
+      const finalSelectedProjects =
+        selection?.selectedProjects ?? parsed.selectedProjects ?? [];
+      const finalExcludedProjects =
+        selection?.excludedProjects ?? parsed.excludedProjects;
+      const finalJdAnalysis = selection?.jdAnalysis ?? parsed.jdAnalysis;
+
       const app = await createApplication({
         company: body.company,
         position: body.position,
         channel: body.channel || "",
         jd: body.jd,
-        selected_projects: parsed.selectedProjects || [],
+        selected_projects: finalSelectedProjects,
         resume_markdown: parsed.resumeMarkdown || "",
       });
 
       return Response.json({
         ...parsed,
+        jdAnalysis: finalJdAnalysis,
+        selectedProjects: finalSelectedProjects,
+        excludedProjects: finalExcludedProjects,
         photoUrl: profile?.photo_url ?? null,
         applicationId: app.id,
         usage: { current: usage.current, limit: usage.limit },

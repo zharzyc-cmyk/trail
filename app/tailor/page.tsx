@@ -72,14 +72,21 @@ export default function TailorPage() {
           channel: channel.trim(),
         }),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || "生成失败");
+      const raw = await res.text();
+      let json: (TailorResult & { error?: string }) | null = null;
+      try {
+        json = JSON.parse(raw) as TailorResult & { error?: string };
+      } catch {
+        setError(`服务器返回了非 JSON 响应（HTTP ${res.status}）：${raw.slice(0, 200)}`);
         return;
       }
-      setResult(json as TailorResult);
+      if (!res.ok) {
+        setError(json?.error || `生成失败（HTTP ${res.status}）`);
+        return;
+      }
+      setResult(json);
       if (json.usage) {
-        setReadiness((r) => ({ ...r, usage: { count: json.usage.current, limit: json.usage.limit } }));
+        setReadiness((r) => ({ ...r, usage: { count: json!.usage!.current, limit: json!.usage!.limit } }));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "请求失败");

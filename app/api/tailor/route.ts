@@ -22,6 +22,7 @@ const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
 type Selection = {
   jdAnalysis: string;
+  atsKeywords?: string[];
   selectedProjects: string[];
   excludedProjects?: { name: string; reason: string }[];
 };
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
                 position: body.position,
                 projects: projects.map((p) => ({
                   name: p.name,
-                  summary: p.content.slice(0, 200),
+                  summary: p.content.slice(0, 90),
                 })),
               }),
             },
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
       jd: body.jd,
       companyName: body.company,
       position: body.position,
+      atsKeywords: selection?.atsKeywords,
     });
 
     try {
@@ -199,7 +201,6 @@ export async function POST(request: Request) {
 
       let parsed: {
         jdAnalysis: string;
-        atsKeywords?: string[];
         selectedProjects: string[];
         excludedProjects?: { name: string; reason: string }[];
         changeLog: string[];
@@ -237,6 +238,7 @@ export async function POST(request: Request) {
       return Response.json({
         ...parsed,
         jdAnalysis: finalJdAnalysis,
+        atsKeywords: selection?.atsKeywords,
         selectedProjects: finalSelectedProjects,
         excludedProjects: finalExcludedProjects,
         photoUrl: profile?.photo_url ?? null,

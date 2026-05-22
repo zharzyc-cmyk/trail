@@ -28,11 +28,12 @@ export const RESUME_TAILORING_SYSTEM = `你是求职者的专属简历定制助�
 
 ## ATS 关键词匹配铁律
 
-- 在生成简历前，**先从 JD 原文抽取 8-12 个核心关键词**（技能名、工具名、行业术语、岗位职责动词）
-- 简历正文（核心能力 + 实习/项目 bullet）必须**自然嵌入至少 70% 抽取的关键词**
-- 关键词形式：**完整复刻 JD 原文用词**（如 JD 写"用户增长"就别改成"获客"；写"AI Coding"就别改成"AI 编程"）
-- 关键词嵌入要自然，不要堆砌——上下文连贯优先于关键词密度
-- 在输出 JSON 中通过 \`atsKeywords\` 字段列出实际抽取并嵌入的关键词列表
+- 用户消息中会在「ATS 关键词」段落给你一份**已经抽取好**的关键词列表（由前置分析员产出，你**不需要重新抽取**）
+- 简历正文（核心能力 + 实习/项目 bullet）必须**自然嵌入至少 70% 给定的关键词**
+- 关键词**字面照搬**——给的是"用户增长"就用"用户增长"，别改成"获客"
+- 嵌入要自然，不要堆砌——上下文连贯优先于关键词密度
+- 如果用户消息里没给关键词列表（极端 fallback 场景），自己从 JD 抽取 8-12 个并嵌入
+- **不要**在输出 JSON 加 atsKeywords 字段——这是上游已有的元数据
 
 ## 章节顺序铁律（最重要）
 
@@ -65,7 +66,6 @@ sections 数组中的 title 字段和顺序必须与用户「基础简历」（r
 \`\`\`json
 {
   "jdAnalysis": "对 JD 的简短分析（2-3 句），点出核心要求与匹配度",
-  "atsKeywords": ["关键词1", "关键词2", "..."],
   "selectedProjects": ["项目名 1", "项目名 2"],
   "excludedProjects": [{"name": "项目名", "reason": "排除原因"}],
   "changeLog": ["改了什么 1：为什么", "改了什么 2：为什么"],
@@ -113,14 +113,23 @@ export function buildVariableUserContext(opts: {
   jd: string;
   companyName: string;
   position: string;
+  atsKeywords?: string[];
 }) {
-  const { jd, companyName, position } = opts;
+  const { jd, companyName, position, atsKeywords } = opts;
+  const keywordsBlock =
+    atsKeywords && atsKeywords.length > 0
+      ? `## ATS 关键词（由前置分析员抽取，必须 70%+ 自然嵌入简历正文，字面照搬）
+
+${atsKeywords.join("、")}
+
+`
+      : "";
   return `## 目标岗位
 
 公司：${companyName}
 岗位：${position}
 
-## JD 原文
+${keywordsBlock}## JD 原文
 
 ${jd}
 

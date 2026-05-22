@@ -199,6 +199,7 @@ export async function POST(request: Request) {
 
       let parsed: {
         jdAnalysis: string;
+        atsKeywords?: string[];
         selectedProjects: string[];
         excludedProjects?: { name: string; reason: string }[];
         changeLog: string[];

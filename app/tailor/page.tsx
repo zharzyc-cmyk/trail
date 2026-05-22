@@ -12,6 +12,7 @@ import { renderResumeHtml, openPrintWindow } from "@/lib/resume-template";
 
 type TailorResult = {
   jdAnalysis: string;
+  atsKeywords?: string[];
   selectedProjects: string[];
   excludedProjects?: { name: string; reason: string }[];
   changeLog: string[];
@@ -196,6 +197,21 @@ export default function TailorPage() {
                 <p className="font-medium">JD 分析</p>
                 <p className="mt-1 text-zinc-700">{result.jdAnalysis}</p>
               </div>
+              {result.atsKeywords && result.atsKeywords.length > 0 && (
+                <div>
+                  <p className="font-medium">ATS 关键词（已嵌入简历）</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {result.atsKeywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs text-blue-700 border border-blue-200"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="font-medium">选中的项目</p>
                 <ul className="mt-1 list-disc pl-5 text-zinc-700">

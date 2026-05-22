@@ -17,8 +17,12 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "claude-sonnet-4-6";
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+// D2: stage 2 was claude-sonnet-4-6 but Sonnet held 50+s on small
+// contexts and blew Vercel's 60s function limit. Haiku 4.5 finishes
+// in 20-30s. Accepting a quality dip on JD keyword nuance in exchange
+// for the function actually returning.
+const SELECTOR_MODEL = "claude-haiku-4-5-20251001";
+const TAILOR_MODEL = "claude-haiku-4-5-20251001";
 
 type Selection = {
   jdAnalysis: string;
@@ -87,7 +91,7 @@ export async function POST(request: Request) {
     if (projects.length > 0) {
       try {
         const selectorResp = await client.messages.create({
-          model: HAIKU_MODEL,
+          model: SELECTOR_MODEL,
           max_tokens: 1024,
           system: PROJECT_SELECTOR_SYSTEM,
           messages: [
@@ -154,7 +158,7 @@ export async function POST(request: Request) {
 
     try {
       const resp = await client.messages.create({
-        model: MODEL,
+        model: TAILOR_MODEL,
         max_tokens: 2048,
         system: [
           {

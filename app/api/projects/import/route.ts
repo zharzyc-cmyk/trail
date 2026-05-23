@@ -138,7 +138,7 @@ export async function POST(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/401|invalid_api_key|authentication/i.test(msg)) {
-      return Response.json({ error: "服务端 DeepSeek Key 失效，请联系管理员" }, { status: 500 });
+      return Response.json({ error: "服务端 Anthropic Key 失效，请联系管理员" }, { status: 500 });
     }
     return Response.json({ error: `AI 抽取失败：${msg}` }, { status: 502 });
   }

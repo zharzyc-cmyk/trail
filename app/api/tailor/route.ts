@@ -250,14 +250,14 @@ export async function POST(request: Request) {
       .map((b) => b.text)
       .join("\n")
       .trim();
-    try {
-      const parsed = JSON.parse(stripCodeFence(text)) as { html?: string };
-      sections.push({ title, html: (parsed.html || "").trim() });
-    } catch (e) {
-      console.warn(`[/api/tailor] section "${title}" JSON parse failed:`, e);
+    const html = extractHtml(text);
+    if (!html) {
+      console.warn(`[/api/tailor] section "${title}" produced no HTML. Raw first 200 chars:`, text.slice(0, 200));
       sections.push({ title, html: "" });
       anyFailed = true;
+      return;
     }
+    sections.push({ title, html });
   });
 
   console.log("[/api/tailor] tailor parallel usage:", {
@@ -338,4 +338,30 @@ function stripCodeFence(s: string): string {
   const end = t.lastIndexOf("}");
   if (start !== -1 && end > start) return t.slice(start, end + 1);
   return t;
+}
+
+// 从 LLM 输出中提取裸 HTML 片段。模型偶尔会包代码块、加 {"html":...} 包装、
+// 或在前后加自然语言解释。尽量兼容多种格式，最后兜底截取第一个 < 到最后一个 >。
+function extractHtml(raw: string): string {
+  let t = raw.trim();
+  // 1. 去 markdown 代码块（```html / ``` / ```json 等）
+  if (t.startsWith("```")) {
+    t = t.replace(/^```[a-zA-Z]*\s*/i, "");
+    t = t.replace(/\s*```\s*$/, "");
+    t = t.trim();
+  }
+  // 2. 若误用 JSON 包装 {"html": "..."}，尝试 parse 抽 html 字段
+  if (t.startsWith("{") && t.includes('"html"')) {
+    try {
+      const obj = JSON.parse(t) as { html?: string };
+      if (typeof obj.html === "string" && obj.html.trim()) return obj.html.trim();
+    } catch {
+      // parse 失败就 fallthrough 走截取
+    }
+  }
+  // 3. 截取第一个 < 到最后一个 >
+  const start = t.indexOf("<");
+  const end = t.lastIndexOf(">");
+  if (start !== -1 && end > start) return t.slice(start, end + 1).trim();
+  return "";
 }

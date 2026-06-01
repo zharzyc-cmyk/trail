@@ -38,13 +38,27 @@ user 消息会给你一份"ATS 关键词"列表（由前置分析员从 JD 抽�
 
 ---
 
-## 输出格式（严格 JSON，无 markdown 代码块包裹）
+## 输出格式（裸 HTML 片段，不要 JSON 包装，不要 markdown 代码块）
 
-\`\`\`json
-{ "html": "<ul><li>...</li></ul>" }
+直接输出该章节的 HTML 字符串，例如：
+
+\`\`\`
+<ul><li><span class="bp">小标题</span>：正文，<strong>数据点</strong>。</li></ul>
 \`\`\`
 
-JSON 内字符串里的 HTML 属性双引号必须转义为 \`\\"\`。简历原文中的中文短语引号用 \`「」\` 而非半角引号。不要在 JSON 外输出任何文字。`;
+或 entry-header 类型：
+
+\`\`\`
+<div class="entry-header"><span>公司｜岗位</span><span class="entry-date">2024.07 - 2024.09</span></div>
+<ul><li>...</li></ul>
+\`\`\`
+
+**铁律**：
+- 不要 \`{"html": "..."}\` 之类的 JSON 包装
+- 不要 \`\`\`html ... \`\`\` 代码块
+- 不要任何解释、前后缀
+- 简历原文里的中文短语引号用 \`「」\` 而非半角引号，避免与 HTML 属性引号混淆
+- 第一个字符就是 \`<\`，最后一个字符就是 \`>\``;
 
 export function buildSectionWriterUserMessage(opts: {
   sectionTitle: string;
@@ -105,5 +119,5 @@ ${projects.length === 0 ? "（无）" : projects.map((p) => `### ${p.name}\n\n${
 
 ---
 
-请输出 \`{ "html": "..." }\`，**只包含 ${sectionTitle} 章节的内部 HTML 片段**，不含外层 \`<h2>\`。`;
+直接输出 **${sectionTitle} 章节的内部 HTML 片段**，第一个字符必须是 \`<\`，不要 JSON、不要代码块、不要解释。`;
 }

@@ -451,16 +451,16 @@ export default function ProfilePage() {
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>从简历 PDF 一键导入</CardTitle>
+              <CardTitle>从简历文件一键导入</CardTitle>
               <CardDescription>
-                上传一份完整的简历 PDF，AI 自动拆出 Profile、基础简历底稿、项目历程库三块，你确认后写入资料库。消耗 1 次今日用量。
+                支持 PDF / DOCX / HTML。AI 自动拆出 Profile、基础简历底稿、项目历程库三块，你确认后写入资料库。消耗 1 次今日用量。
               </CardDescription>
             </div>
             <div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf,.pdf"
+                accept=".pdf,.docx,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/html"
                 onChange={onPickPdf}
                 className="hidden"
               />
@@ -470,7 +470,7 @@ export default function ProfilePage() {
                 disabled={importing}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {importing ? "解析中..." : "选择简历 PDF"}
+                {importing ? "解析中..." : "选择简历文件"}
               </Button>
             </div>
           </div>
@@ -645,7 +645,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {projects.length === 0 && (
-            <p className="text-sm text-zinc-500">还没有项目。在下方手动添加，或上方「从简历 PDF 一键导入」拆解。</p>
+            <p className="text-sm text-zinc-500">还没有项目。在下方手动添加，或上方「从简历文件一键导入」拆解。</p>
           )}
           {projects.map((p) => {
             const count = p.signal_count ?? 0;

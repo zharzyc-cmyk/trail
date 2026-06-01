@@ -138,10 +138,10 @@ export default function TailorPage() {
       </div>
 
       {!ready && (
-        <Card className="border-amber-300 bg-amber-50">
+        <Card className="border-blue-200 bg-blue-50/60 backdrop-blur">
           <CardContent className="space-y-2 pt-6 text-sm">
-            <p className="font-medium text-amber-900">先去资料库准备素材：</p>
-            <p>
+            <p className="font-medium text-blue-900">先去资料库准备素材：</p>
+            <p className="text-blue-800/90">
               <Link href="/profile" className="underline">
                 前往资料库
               </Link>{" "}

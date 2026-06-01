@@ -22,6 +22,11 @@ export type Application = {
   resume_markdown: string;
   status: ApplicationStatus;
   created_at: string;
+  // Snapshot of the generated resume (added 2026-06)，老数据为 null
+  sections: { title: string; html: string }[] | null;
+  name: string | null;
+  contact_html: string | null;
+  photo_url: string | null;
 };
 
 export async function listMyApplications(): Promise<Application[]> {
@@ -48,6 +53,10 @@ export async function createApplication(input: {
   jd: string;
   selected_projects: string[];
   resume_markdown: string;
+  sections?: { title: string; html: string }[];
+  name?: string;
+  contact_html?: string;
+  photo_url?: string | null;
 }): Promise<Application> {
   const supabase = await createClient();
   const {

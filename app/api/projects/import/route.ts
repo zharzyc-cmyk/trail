@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { extractText, getDocumentProxy } from "unpdf";
+import mammoth from "mammoth";
 import { createClient } from "@/lib/supabase/server";
 import { tryIncrementUsage } from "@/lib/db/usage";
 import { listMyProjects } from "@/lib/db/projects";
@@ -13,8 +14,56 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-sonnet-4-6";
-const MAX_PDF_BYTES = 8 * 1024 * 1024;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT_CHARS = 30_000;
+
+type SupportedKind = "pdf" | "docx" | "html";
+
+function detectKind(file: File): SupportedKind | null {
+  const name = file.name.toLowerCase();
+  const type = file.type.toLowerCase();
+  if (name.endsWith(".pdf") || type.includes("pdf")) return "pdf";
+  if (name.endsWith(".docx") || type.includes("officedocument.wordprocessingml")) return "docx";
+  if (name.endsWith(".html") || name.endsWith(".htm") || type.includes("html")) return "html";
+  return null;
+}
+
+async function extractFromPdf(buf: Uint8Array): Promise<string> {
+  const pdf = await getDocumentProxy(buf);
+  const { text } = await extractText(pdf, { mergePages: true });
+  return text.trim();
+}
+
+async function extractFromDocx(buf: Uint8Array): Promise<string> {
+  // mammoth 接受 Node Buffer
+  const buffer = Buffer.from(buf);
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value.trim();
+}
+
+function extractFromHtml(buf: Uint8Array): string {
+  const html = new TextDecoder("utf-8").decode(buf);
+  // 先 strip script / style 整段，再去所有标签
+  const stripped = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "");
+  // decode 常见 HTML entities
+  const decoded = stripped
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&hellip;/g, "…")
+    .replace(/&[a-z]+;/gi, " "); // 兜底，未知 entity 替成空格
+  return decoded.replace(/\n{3,}/g, "\n\n").trim();
+}
 
 type ImportedProject = { name: string; content: string };
 
@@ -36,12 +85,13 @@ export async function POST(request: Request) {
 
   const file = form.get("file");
   if (!(file instanceof File)) {
-    return Response.json({ error: "缺少 file 字段（PDF）" }, { status: 400 });
+    return Response.json({ error: "缺少 file 字段" }, { status: 400 });
   }
-  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
-    return Response.json({ error: "只支持 PDF 文件" }, { status: 400 });
+  const kind = detectKind(file);
+  if (!kind) {
+    return Response.json({ error: "只支持 PDF / DOCX / HTML 三种格式" }, { status: 400 });
   }
-  if (file.size > MAX_PDF_BYTES) {
+  if (file.size > MAX_FILE_BYTES) {
     return Response.json(
       { error: `文件过大（${(file.size / 1024 / 1024).toFixed(1)} MB），上限 8 MB` },
       { status: 400 }
@@ -59,19 +109,22 @@ export async function POST(request: Request) {
   let resumeText: string;
   try {
     const buf = new Uint8Array(await file.arrayBuffer());
-    const pdf = await getDocumentProxy(buf);
-    const { text } = await extractText(pdf, { mergePages: true });
-    resumeText = text.trim();
+    if (kind === "pdf") resumeText = await extractFromPdf(buf);
+    else if (kind === "docx") resumeText = await extractFromDocx(buf);
+    else resumeText = extractFromHtml(buf);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: `PDF 解析失败：${msg}` }, { status: 400 });
+    return Response.json({ error: `${kind.toUpperCase()} 解析失败：${msg}` }, { status: 400 });
   }
 
   if (!resumeText) {
-    return Response.json(
-      { error: "PDF 没有可提取的文本（常见于「可画」/ Canva 等设计工具导出的 PDF）。请用文本版简历或 Word 导出的 PDF 重试。" },
-      { status: 400 }
-    );
+    const hint =
+      kind === "pdf"
+        ? "PDF 没有可提取的文本（常见于「可画」/ Canva 等设计工具导出的 PDF）。请用文本版简历或 Word 导出的 PDF 重试。"
+        : kind === "docx"
+        ? "DOCX 没有可提取的文本。请确认文件内容非空，或试试导出为 PDF 再上传。"
+        : "HTML 没有可提取的文本。请确认文件含正文内容。";
+    return Response.json({ error: hint }, { status: 400 });
   }
   const truncated = resumeText.length > MAX_TEXT_CHARS;
   if (truncated) resumeText = resumeText.slice(0, MAX_TEXT_CHARS);

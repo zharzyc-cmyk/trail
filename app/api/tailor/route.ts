@@ -326,6 +326,10 @@ export async function POST(request: Request) {
       jd: body.jd,
       selected_projects: finalSelectedProjects,
       resume_markdown: resumeMarkdown,
+      sections,
+      name: selection?.name ?? "",
+      contact_html: selection?.contactHtml ?? "",
+      photo_url: profile?.photo_url ?? null,
     });
   } catch (e) {
     console.error("[/api/tailor] createApplication failed:", e);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { downloadDocx } from "@/lib/docx";
+import { renderResumeHtml, openPrintWindow } from "@/lib/resume-template";
 import { cn } from "@/lib/utils";
 import { Send, Target, Award, BadgePercent } from "lucide-react";
 
@@ -30,6 +30,10 @@ type Application = {
   resume_markdown: string;
   status: ApplicationStatus;
   created_at: string;
+  sections: { title: string; html: string }[] | null;
+  name: string | null;
+  contact_html: string | null;
+  photo_url: string | null;
 };
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
@@ -166,10 +170,21 @@ export default function ApplicationsPage() {
     if (!r.ok) setApps(prev);
   }
 
-  async function downloadResume(app: Application) {
-    const today = new Date(app.created_at).toISOString().slice(0, 10).replace(/-/g, "");
-    const fname = `${app.company}_${app.position}_${today}.docx`.replace(/[/\\?%*:|"<>]/g, "_");
-    await downloadDocx(app.resume_markdown, fname);
+  function printResume(app: Application) {
+    if (!app.sections || app.sections.length === 0) {
+      alert("这条记录在 PDF 持久化功能上线前生成，无法重新打印。重新跑一次简历定制即可。");
+      return;
+    }
+    const html = renderResumeHtml(
+      {
+        name: app.name || "",
+        contactHtml: app.contact_html || "",
+        photoUrl: app.photo_url ?? null,
+        sections: app.sections,
+      },
+      { title: `${app.company}_${app.position}` }
+    );
+    openPrintWindow(html);
   }
 
   const byStatus = useMemo(() => {
@@ -399,8 +414,17 @@ export default function ApplicationsPage() {
                       </pre>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => downloadResume(app)}>
-                        重新下载 .docx
+                      <Button
+                        size="sm"
+                        onClick={() => printResume(app)}
+                        disabled={!app.sections || app.sections.length === 0}
+                        title={
+                          !app.sections || app.sections.length === 0
+                            ? "本记录在 PDF 持久化功能上线前生成，无法重新打印"
+                            : undefined
+                        }
+                      >
+                        打印 / 保存 PDF
                       </Button>
                       <Link href={`/interviews?app=${app.id}&round=${nextRound(app.status)}`}>
                         <Button size="sm" variant="outline">

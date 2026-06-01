@@ -344,7 +344,7 @@ export default function TailorPage() {
             <CardContent>
               <style dangerouslySetInnerHTML={{ __html: EDITABLE_SECTION_STYLES }} />
               {result.sections && result.sections.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-4 pl-7">
                   {(result.name || result.contactHtml) && (
                     <header className="space-y-1 border-b-2 border-[#2563a8] pb-3">
                       {result.name && (

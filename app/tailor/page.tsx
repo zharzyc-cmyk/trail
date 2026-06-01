@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { downloadDocx } from "@/lib/docx";
 import { renderResumeHtml, openPrintWindow } from "@/lib/resume-template";
+import { EditableSection, EDITABLE_SECTION_STYLES } from "./EditableSection";
 
 type TailorResult = {
   jdAnalysis: string;
@@ -101,6 +102,14 @@ export default function TailorPage() {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const fname = `${company}_${position}_${today}.docx`.replace(/[/\\?%*:|"<>]/g, "_");
     await downloadDocx(result.resumeMarkdown, fname);
+  }
+
+  function handleSectionEdit(index: number, newHtml: string) {
+    setResult((prev) => {
+      if (!prev || !prev.sections) return prev;
+      const sections = prev.sections.map((s, i) => (i === index ? { ...s, html: newHtml } : s));
+      return { ...prev, sections };
+    });
   }
 
   function handlePrintPdf() {
@@ -245,11 +254,16 @@ export default function TailorPage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>定制简历预览</CardTitle>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle>定制简历预览</CardTitle>
+                  <CardDescription className="mt-1">
+                    点击任意文字直接编辑，编辑后打印 PDF 即为最终版（刷新页面会丢失改动）
+                  </CardDescription>
+                </div>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" onClick={handleDownload}>
-                    下载 .docx
+                    下载 .docx（AI 原版）
                   </Button>
                   <Button
                     onClick={handlePrintPdf}
@@ -261,9 +275,38 @@ export default function TailorPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <pre className="whitespace-pre-wrap rounded bg-zinc-50 p-4 font-mono text-xs leading-6">
-                {result.resumeMarkdown}
-              </pre>
+              <style dangerouslySetInnerHTML={{ __html: EDITABLE_SECTION_STYLES }} />
+              {result.sections && result.sections.length > 0 ? (
+                <div className="space-y-4">
+                  {(result.name || result.contactHtml) && (
+                    <header className="space-y-1 border-b-2 border-[#2563a8] pb-3">
+                      {result.name && (
+                        <h1 className="text-xl font-bold tracking-wide text-[#1c3d6e]">
+                          {result.name}
+                        </h1>
+                      )}
+                      {result.contactHtml && (
+                        <div
+                          className="resume-editable text-xs text-zinc-600"
+                          dangerouslySetInnerHTML={{ __html: result.contactHtml }}
+                        />
+                      )}
+                    </header>
+                  )}
+                  {result.sections.map((s, i) => (
+                    <EditableSection
+                      key={`${result.applicationId || "draft"}-${i}-${s.title}`}
+                      title={s.title}
+                      html={s.html || "（本章节生成失败，可手动补充内容）"}
+                      onChange={(newHtml) => handleSectionEdit(i, newHtml)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <pre className="whitespace-pre-wrap rounded bg-zinc-50 p-4 font-mono text-xs leading-6">
+                  {result.resumeMarkdown}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </>

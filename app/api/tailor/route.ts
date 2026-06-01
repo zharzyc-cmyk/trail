@@ -11,6 +11,7 @@ import {
 import {
   SECTION_WRITER_SYSTEM,
   buildSectionWriterUserMessage,
+  type SectionPlan,
 } from "@/lib/prompts/section-writer";
 
 export const runtime = "nodejs";
@@ -31,6 +32,7 @@ type Selection = {
   excludedProjects?: { name: string; reason: string }[];
   name?: string;
   contactHtml?: string;
+  sectionPlans?: SectionPlan[];
 };
 
 type Body = {
@@ -162,6 +164,7 @@ export async function POST(request: Request) {
               projects: projects.map((p) => ({ name: p.name, summary: p.content.slice(0, 90) })),
               profile: profileText,
               resumeBase,
+              sectionTitles,
             }),
           },
         ],
@@ -196,6 +199,9 @@ export async function POST(request: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 
+  const plansByTitle = new Map<string, SectionPlan>();
+  selection?.sectionPlans?.forEach((p) => plansByTitle.set(p.title, p));
+
   const tailorStart = Date.now();
   const sectionResults = await Promise.allSettled(
     sectionTitles.map((title) =>
@@ -217,6 +223,7 @@ export async function POST(request: Request) {
                 type: "text",
                 text: buildSectionWriterUserMessage({
                   sectionTitle: title,
+                  plan: plansByTitle.get(title),
                   profile: profileText,
                   resumeBase,
                   projects: effectiveProjects.map((p) => ({ name: p.name, content: p.content })),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,16 +117,22 @@ export default function TailorPage() {
     });
   }
 
-  // 简历压进 1 页的字符数预算（含 header + 章节标题）。selector 的 sectionPlans
-  // 配额加起来约 ≤ 1200，加一点 buffer 设为 1250。超出基本就是 2 页了。
-  const PAGE_CHAR_BUDGET = 1250;
-  const sectionsCharCount = result?.sections
-    ? result.sections.reduce((sum, s) => sum + s.html.replace(/<[^>]+>/g, "").trim().length, 0)
-    : 0;
-  const headerCharCount =
-    (result?.name?.length || 0) + (result?.contactHtml?.replace(/<[^>]+>/g, "").length || 0);
-  const totalCharCount = sectionsCharCount + headerCharCount;
-  const overBudget = totalCharCount > PAGE_CHAR_BUDGET;
+  // 用一个隐藏的 A4-mode 容器实测渲染高度。比字符数估算精准——它真按 PDF 模板的字号/
+  // 行距/字体渲染 sections HTML，scrollHeight 直接对应 PDF 占用高度。
+  // A4 = 297mm，模板 margin = 1.2cm 上下 → 可用高度 273mm。
+  const measureRef = useRef<HTMLDivElement>(null);
+  const A4_USABLE_MM = 273;
+  const [pageHeightMm, setPageHeightMm] = useState(0);
+
+  useEffect(() => {
+    if (!measureRef.current) return;
+    // 浏览器渲染：1in = 96px，1in = 25.4mm，所以 px → mm 是 ×25.4/96
+    const heightPx = measureRef.current.scrollHeight;
+    const mm = (heightPx / 96) * 25.4;
+    setPageHeightMm(Math.round(mm));
+  }, [result?.sections, result?.name, result?.contactHtml]);
+
+  const overBudget = pageHeightMm > A4_USABLE_MM;
 
   function handlePrintPdf() {
     if (!result?.sections || result.sections.length === 0) {
@@ -304,7 +310,7 @@ export default function TailorPage() {
                 <div className="flex items-center gap-3">
                   <div className="text-right text-xs">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-zinc-500">总字数</span>
+                      <span className="text-zinc-500">页高度</span>
                       <span
                         className={
                           overBudget
@@ -312,13 +318,15 @@ export default function TailorPage() {
                             : "text-base font-semibold text-zinc-800"
                         }
                       >
-                        {totalCharCount}
+                        {pageHeightMm}
                       </span>
-                      <span className="text-zinc-400">/ {PAGE_CHAR_BUDGET}</span>
+                      <span className="text-zinc-400">/ {A4_USABLE_MM}mm</span>
                     </div>
                     <div className="text-zinc-500">
                       {overBudget ? (
-                        <span className="text-red-600">⚠️ 超 1 页，请精简</span>
+                        <span className="text-red-600">
+                          ⚠️ 超 1 页 {pageHeightMm - A4_USABLE_MM}mm
+                        </span>
                       ) : (
                         <span>1 页范围内 ✓</span>
                       )}
@@ -382,6 +390,67 @@ export default function TailorPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* 隐藏的 A4-mode 测量容器。CSS 完全匹配 lib/resume-template.ts 的 PDF 模板，
+              这样 scrollHeight 直接代表 PDF 占用高度。位置 absolute + visibility hidden
+              确保不影响布局。每次 sections 改动后 useEffect 测一次。 */}
+          {result.sections && result.sections.length > 0 && (
+            <div
+              ref={measureRef}
+              aria-hidden
+              style={{
+                position: "absolute",
+                visibility: "hidden",
+                pointerEvents: "none",
+                top: 0,
+                left: 0,
+                // 内容宽 = 21cm - 1.4cm × 2 = 18.2cm
+                width: "18.2cm",
+                fontFamily: '"Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif',
+                fontSize: "9.8pt",
+                lineHeight: 1.42,
+                color: "#222",
+                margin: 0,
+                padding: 0,
+              }}
+            >
+              <style
+                dangerouslySetInnerHTML={{
+                  __html: `
+.measure-h2 { background: #d8e4f1; color: #1c3d6e; padding: 3px 10px; font-size: 11pt; margin-top: 10px; margin-bottom: 5px; border-left: 4px solid #2563a8; }
+.measure-body { margin-bottom: 4px; }
+.measure-body .bp { font-weight: bold; color: #000; }
+.measure-body strong { color: #c0392b; }
+.measure-body .entry-header { display: flex; justify-content: space-between; font-weight: bold; margin-top: 6px; margin-bottom: 2px; font-size: 10pt; color: #1c3d6e; }
+.measure-body .entry-date { color: #555; font-weight: normal; }
+.measure-body ul { margin-top: 2px; margin-bottom: 4px; padding-left: 18px; }
+.measure-body li { margin-bottom: 2px; }
+.measure-header { padding-bottom: 8px; border-bottom: 2px solid #2563a8; margin-bottom: 10px; }
+.measure-name { font-size: 22pt; font-weight: bold; color: #1c3d6e; letter-spacing: 3px; margin: 0; line-height: 1.1; }
+.measure-contact { font-size: 9.8pt; color: #555; margin-top: 4px; }
+`,
+                }}
+              />
+              <div className="measure-header">
+                {result.name && <div className="measure-name">{result.name}</div>}
+                {result.contactHtml && (
+                  <div
+                    className="measure-contact"
+                    dangerouslySetInnerHTML={{ __html: result.contactHtml }}
+                  />
+                )}
+              </div>
+              {result.sections.map((s, i) => (
+                <div key={`measure-${i}`}>
+                  <div className="measure-h2">{s.title}</div>
+                  <div
+                    className="measure-body"
+                    dangerouslySetInnerHTML={{ __html: s.html }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

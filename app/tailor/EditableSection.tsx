@@ -161,7 +161,7 @@ export function EditableSection({
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}
-        className="resume-editable rounded border border-transparent px-2 py-1 text-sm leading-relaxed text-zinc-800 hover:border-zinc-200 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        className="resume-editable rounded border border-transparent px-2 py-1 text-zinc-800 hover:border-zinc-200 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
         onBlur={(e) => {
           const next = e.currentTarget.innerHTML.trim();
           if (next !== html) onChange(next);

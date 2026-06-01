@@ -341,47 +341,107 @@ export default function TailorPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-x-auto">
               <style dangerouslySetInnerHTML={{ __html: EDITABLE_SECTION_STYLES }} />
               {result.sections && result.sections.length > 0 ? (
-                <div className="space-y-4 pl-7">
-                  {(result.name || result.contactHtml) && (
-                    <header className="space-y-1 border-b-2 border-[#2563a8] pb-3">
-                      {result.name && (
-                        <h1 className="text-xl font-bold tracking-wide text-[#1c3d6e]">
-                          {result.name}
-                        </h1>
-                      )}
-                      {result.contactHtml && (
-                        <div
-                          className="resume-editable text-xs text-zinc-600"
-                          dangerouslySetInnerHTML={{ __html: result.contactHtml }}
+                <div
+                  className="a4-preview relative mx-auto bg-white shadow-sm"
+                  style={{
+                    width: "21cm",
+                    minHeight: "29.7cm",
+                    padding: "1.2cm 1.4cm",
+                    fontFamily:
+                      '"Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif',
+                    fontSize: "9.8pt",
+                    lineHeight: 1.42,
+                    color: "#222",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  {/* 1 页边界红虚线 — 在内容区顶部往下 273mm 处。
+                      位置 = padding-top (1.2cm = 12mm) + 273mm = 285mm */}
+                  <div
+                    className="pointer-events-none"
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      top: "285mm",
+                      borderTop: "2px dashed #c0392b",
+                      zIndex: 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "-10px",
+                        left: "1.4cm",
+                        background: "#fff",
+                        padding: "0 6px",
+                        fontSize: "10px",
+                        color: "#c0392b",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ⚠ 1 页 A4 边界，下方内容会溢出第 2 页
+                    </span>
+                  </div>
+
+                  <div className="pl-7">
+                    {(result.name || result.contactHtml) && (
+                      <header
+                        className="space-y-1 border-b-2 pb-2"
+                        style={{ borderColor: "#2563a8" }}
+                      >
+                        {result.name && (
+                          <h1
+                            style={{
+                              fontSize: "22pt",
+                              fontWeight: "bold",
+                              color: "#1c3d6e",
+                              letterSpacing: "3px",
+                              margin: 0,
+                              lineHeight: 1.1,
+                            }}
+                          >
+                            {result.name}
+                          </h1>
+                        )}
+                        {result.contactHtml && (
+                          <div
+                            className="resume-editable"
+                            style={{ color: "#555", marginTop: "4px" }}
+                            dangerouslySetInnerHTML={{ __html: result.contactHtml }}
+                          />
+                        )}
+                      </header>
+                    )}
+                    <div className="space-y-1 mt-2">
+                      {result.sections.map((s, i) => (
+                        <EditableSection
+                          key={`${result.applicationId || "draft"}-${s.title}`}
+                          title={s.title}
+                          html={s.html || "（本章节生成失败，可手动补充内容）"}
+                          index={i}
+                          draggingIndex={draggingIndex}
+                          dragOverIndex={dragOverIndex}
+                          onChange={(newHtml) => handleSectionEdit(i, newHtml)}
+                          onDragStart={(idx) => setDraggingIndex(idx)}
+                          onDragEnter={(idx) => setDragOverIndex(idx)}
+                          onDragEnd={() => {
+                            setDraggingIndex(null);
+                            setDragOverIndex(null);
+                          }}
+                          onDrop={(idx) => {
+                            if (draggingIndex !== null) reorderSection(draggingIndex, idx);
+                            setDraggingIndex(null);
+                            setDragOverIndex(null);
+                          }}
                         />
-                      )}
-                    </header>
-                  )}
-                  {result.sections.map((s, i) => (
-                    <EditableSection
-                      key={`${result.applicationId || "draft"}-${s.title}`}
-                      title={s.title}
-                      html={s.html || "（本章节生成失败，可手动补充内容）"}
-                      index={i}
-                      draggingIndex={draggingIndex}
-                      dragOverIndex={dragOverIndex}
-                      onChange={(newHtml) => handleSectionEdit(i, newHtml)}
-                      onDragStart={(idx) => setDraggingIndex(idx)}
-                      onDragEnter={(idx) => setDragOverIndex(idx)}
-                      onDragEnd={() => {
-                        setDraggingIndex(null);
-                        setDragOverIndex(null);
-                      }}
-                      onDrop={(idx) => {
-                        if (draggingIndex !== null) reorderSection(draggingIndex, idx);
-                        setDraggingIndex(null);
-                        setDragOverIndex(null);
-                      }}
-                    />
-                  ))}
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <pre className="whitespace-pre-wrap rounded bg-zinc-50 p-4 font-mono text-xs leading-6">

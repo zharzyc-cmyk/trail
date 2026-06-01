@@ -121,7 +121,9 @@ export default function TailorPage() {
   // 行距/字体渲染 sections HTML，scrollHeight 直接对应 PDF 占用高度。
   // A4 = 297mm，模板 margin = 1.2cm 上下 → 可用高度 273mm。
   const measureRef = useRef<HTMLDivElement>(null);
-  const A4_USABLE_MM = 273;
+  // 273mm 是 A4 减去 1.2cm × 2 上下 margin 的理论可用高度。但浏览器打印对话框默认
+  // 开启「页眉页脚」会偷走 ~10mm，所以收紧到 268mm 作为安全阈值。
+  const A4_USABLE_MM = 268;
   const [pageHeightMm, setPageHeightMm] = useState(0);
 
   useEffect(() => {

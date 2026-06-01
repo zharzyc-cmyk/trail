@@ -52,7 +52,7 @@ export function EditableSection({
  * 尽可能接近。挂在 tailor 页一份就行。
  */
 export const EDITABLE_SECTION_STYLES = `
-.resume-editable .bp { font-weight: bold; color: #1c3d6e; }
+.resume-editable .bp { font-weight: bold; color: #000; }
 .resume-editable strong { color: #c0392b; }
 .resume-editable ul { margin: 4px 0; padding-left: 18px; }
 .resume-editable li { margin-bottom: 3px; }

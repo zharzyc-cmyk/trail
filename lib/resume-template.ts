@@ -23,7 +23,7 @@ const TEMPLATE = `<!DOCTYPE html>
   .entry-date { color: #555; font-weight: normal; }
   ul { margin-top: 2px; margin-bottom: 4px; padding-left: 18px; }
   li { margin-bottom: 2px; }
-  .bp { font-weight: bold; color: #1c3d6e; }
+  .bp { font-weight: bold; color: #000; }
   strong { color: #c0392b; }
   .section-body { margin-bottom: 4px; }
   @media print { .no-print { display: none !important; } }

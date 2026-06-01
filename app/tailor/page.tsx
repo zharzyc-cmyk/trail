@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { downloadDocx } from "@/lib/docx";
 import { renderResumeHtml, openPrintWindow } from "@/lib/resume-template";
 import { EditableSection, EDITABLE_SECTION_STYLES } from "./EditableSection";
 
@@ -95,13 +94,6 @@ export default function TailorPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleDownload() {
-    if (!result?.resumeMarkdown) return;
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const fname = `${company}_${position}_${today}.docx`.replace(/[/\\?%*:|"<>]/g, "_");
-    await downloadDocx(result.resumeMarkdown, fname);
   }
 
   function handleSectionEdit(index: number, newHtml: string) {
@@ -249,6 +241,30 @@ export default function TailorPage() {
                   ))}
                 </ul>
               </div>
+              {result.sections && result.sections.length > 0 && (
+                <div>
+                  <p className="font-medium">识别到的简历章节（按你 resumeBase 的 ## 顺序）</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {result.sections.map((s, i) => (
+                      <span key={i} className="flex items-center gap-1">
+                        <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                          {i + 1}. {s.title}
+                        </span>
+                        {i < result.sections!.length - 1 && (
+                          <span className="text-zinc-400">→</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-zinc-500">
+                    如果顺序异常（如第一个不是"核心能力"），去
+                    <Link href="/profile" className="mx-1 text-blue-600 underline">
+                      资料库
+                    </Link>
+                    检查基础简历第一行的 <code className="rounded bg-zinc-100 px-1">##</code> 标题
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -261,17 +277,12 @@ export default function TailorPage() {
                     点击任意文字直接编辑，编辑后打印 PDF 即为最终版（刷新页面会丢失改动）
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={handleDownload}>
-                    下载 .docx（AI 原版）
-                  </Button>
-                  <Button
-                    onClick={handlePrintPdf}
-                    disabled={!result.sections || result.sections.length === 0}
-                  >
-                    打印 / 保存 PDF
-                  </Button>
-                </div>
+                <Button
+                  onClick={handlePrintPdf}
+                  disabled={!result.sections || result.sections.length === 0}
+                >
+                  打印 / 保存 PDF
+                </Button>
               </div>
             </CardHeader>
             <CardContent>

@@ -117,6 +117,17 @@ export default function TailorPage() {
     });
   }
 
+  // 简历压进 1 页的字符数预算（含 header + 章节标题）。selector 的 sectionPlans
+  // 配额加起来约 ≤ 1200，加一点 buffer 设为 1250。超出基本就是 2 页了。
+  const PAGE_CHAR_BUDGET = 1250;
+  const sectionsCharCount = result?.sections
+    ? result.sections.reduce((sum, s) => sum + s.html.replace(/<[^>]+>/g, "").trim().length, 0)
+    : 0;
+  const headerCharCount =
+    (result?.name?.length || 0) + (result?.contactHtml?.replace(/<[^>]+>/g, "").length || 0);
+  const totalCharCount = sectionsCharCount + headerCharCount;
+  const overBudget = totalCharCount > PAGE_CHAR_BUDGET;
+
   function handlePrintPdf() {
     if (!result?.sections || result.sections.length === 0) {
       alert("AI 没返回可打印的章节，请重新生成一次");
@@ -287,15 +298,39 @@ export default function TailorPage() {
                 <div>
                   <CardTitle>定制简历预览</CardTitle>
                   <CardDescription className="mt-1">
-                    点击任意文字直接编辑，编辑后打印 PDF 即为最终版（刷新页面会丢失改动）
+                    点击任意文字编辑，拖动 ⋮⋮ 调顺序。编辑后打印 PDF 即为最终版
                   </CardDescription>
                 </div>
-                <Button
-                  onClick={handlePrintPdf}
-                  disabled={!result.sections || result.sections.length === 0}
-                >
-                  打印 / 保存 PDF
-                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right text-xs">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-zinc-500">总字数</span>
+                      <span
+                        className={
+                          overBudget
+                            ? "text-base font-bold text-red-600"
+                            : "text-base font-semibold text-zinc-800"
+                        }
+                      >
+                        {totalCharCount}
+                      </span>
+                      <span className="text-zinc-400">/ {PAGE_CHAR_BUDGET}</span>
+                    </div>
+                    <div className="text-zinc-500">
+                      {overBudget ? (
+                        <span className="text-red-600">⚠️ 超 1 页，请精简</span>
+                      ) : (
+                        <span>1 页范围内 ✓</span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handlePrintPdf}
+                    disabled={!result.sections || result.sections.length === 0}
+                  >
+                    打印 / 保存 PDF
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

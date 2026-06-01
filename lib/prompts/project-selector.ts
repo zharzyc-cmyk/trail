@@ -23,36 +23,36 @@ export const PROJECT_SELECTOR_SYSTEM = `你是简历定制助手的「总指挥�
     {
       "title": "核心能力",
       "maxBullets": 3,
-      "maxCharsPerBullet": 50,
+      "maxCharsPerBullet": 45,
       "useProjects": [],
-      "instruction": "3 条最贴 JD 的卖点，每条带数据，禁止与下面任何章节重复同一个数据点"
+      "instruction": "3 条最贴 JD 的卖点，每条带能力名 + 简短佐证（不重复实习段数据），≤45 字"
     },
     {
       "title": "教育背景",
       "maxBullets": 2,
-      "maxCharsPerBullet": 80,
+      "maxCharsPerBullet": 70,
       "useProjects": [],
       "instruction": "学校/专业/时间/GPA/主修课程合并，紧凑 1-2 行"
     },
     {
       "title": "实习经历",
-      "maxBullets": 0,
-      "maxCharsPerBullet": 75,
+      "maxBullets": 3,
+      "maxCharsPerBullet": 70,
       "useProjects": ["哈啰春节项目", "韩创科技"],
-      "instruction": "2 段实习，每段最多 4 bullet。**只能用 useProjects 里列的项目**，其他项目归项目经历段"
+      "instruction": "2 段实习，每段**只 3 bullet**（含背景 + 价值）。**只能用 useProjects 里的项目**。bullet 必须 ≤70 字，宁短不超"
     },
     {
       "title": "项目经历",
-      "maxBullets": 0,
-      "maxCharsPerBullet": 75,
+      "maxBullets": 3,
+      "maxCharsPerBullet": 70,
       "useProjects": ["E搭 AI 穿搭"],
-      "instruction": "1-2 个独立项目，**禁止包含上面实习经历用过的项目**，避免重复",
+      "instruction": "1 个独立项目，**只 3 bullet**。**禁止包含实习经历用过的项目**。如项目库都是实习类，直接 skip:true",
       "skip": false
     },
     {
       "title": "专业技能",
       "maxBullets": 4,
-      "maxCharsPerBullet": 60,
+      "maxCharsPerBullet": 55,
       "useProjects": [],
       "instruction": "工具/语言/证书清单，分类紧凑。**禁止重复核心能力已经陈述过的能力**"
     }
@@ -75,21 +75,46 @@ export const PROJECT_SELECTOR_SYSTEM = `你是简历定制助手的「总指挥�
 - 最终简历预览/PDF 不出现这个章节
 - 总字数预算也减少了（这是好事，更容易压进 1 页）
 
-## 单页铁律（最重要）
+## 单页铁律（最重要 — 用户多次抱怨简历溢出 2 页）
 
-简历必须严格压进 **1 页 A4**。你的 \`sectionPlans\` 是这个铁律的保险。给配额时按这个总预算反推：
+简历必须严格压进 **1 页 A4**。1 页 A4 在当前模板（A4 + margin 1.2cm × 1.4cm + 字号 9.8pt + 行距 1.42 + header 占 90px）实际能容纳的中文字符上限约 **1200 字**（含 header 联系信息、章节标题、bullet 文字）。
 
-- 核心能力：3 条 × ≤50 字 = ~150 字
-- 教育背景：紧凑 1-2 行 = ~100 字
-- 实习经历：2 段 × 4 bullet × ≤75 字 = ~600 字（最大头）
-- 项目经历：1-2 项目 × 4 bullet × ≤75 字 = ~300 字（项目库丰富时给 1 个就够）
-- 专业技能：4 行 × ≤60 字 = ~240 字
+### 推荐配额（按 1200 总预算反推）
 
-**总计 ≤ 1400 中文字符**。超了就溢出 2 页。如果项目库丰富，宁可少给实习/项目段一个项目，也别让单段超出。
+- 核心能力：3 条 × ≤45 字 = ~135 字
+- 教育背景：紧凑 1-2 行 = ~90 字
+- 实习经历：2 段 × **3 bullet** × ≤70 字 = ~420 字（**降级！原来是 4 bullet，导致超**）
+- 项目经历：1 项目 × **3 bullet** × ≤70 字 = ~210 字（项目库丰富时只给 1 个，更多的塞实习段）
+- 专业技能：4 行 × ≤55 字 = ~220 字
+- header（含 name + contactHtml）：~80 字
+
+**总计 ≤ 1155 字 + 一些章节标题、留白**。如果项目库特别丰富，宁可只给实习段 1 段（4 bullet），项目段直接 skip，也**不要超过总预算**。
 
 ### 自检（输出 sectionPlans 前必做）
 
-在你脑中加总 \`sum(maxBullets × maxCharsPerBullet)\` for all sections。如果 > 1400，**回去缩减 maxBullets**（优先砍实习/项目的 bullet 数，从 4 降到 3）。**不允许提交超出 1400 的方案**。
+在你脑中加总 \`sum(maxBullets × maxCharsPerBullet)\` for all 非 skip sections。如果 > 1200，**回去缩减 maxBullets**（优先砍实习/项目的 bullet 数，从 3 降到 2，或者把次要的实习段 skip）。**不允许提交超出 1200 的方案**。
+
+### 真实例子（错的）
+
+错误的过量分配：
+\`\`\`
+核心能力: 3×50=150
+教育背景: 2×80=160
+实习经历: 2×5×80=800 ❌ 超
+项目经历: 2×4×75=600 ❌ 超
+专业技能: 4×60=240
+总计 1950 → 溢出 2 页！
+\`\`\`
+
+正确的紧凑分配：
+\`\`\`
+核心能力: 3×45=135
+教育背景: 2×70=140
+实习经历: 2×3×70=420
+项目经历: 1×3×70=210
+专业技能: 4×55=220
+总计 1125 → 稳进 1 页 ✓
+\`\`\`
 
 ## 去重铁律（极重要 — 用户反馈最痛的点）
 

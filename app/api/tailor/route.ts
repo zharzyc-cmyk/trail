@@ -199,12 +199,35 @@ export async function POST(request: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 
+  // 1) 拿到 selector 给的 sectionPlans，做代码层硬隔离 + skip 处理
+  const rawPlans = selection?.sectionPlans ?? [];
+  // useProjects 去重：按 sectionPlans 数组顺序处理，同一项目只能出现在第一个 section
+  // 防止 selector 把"丽人丽妆"同时分配给实习经历和项目经历
+  const seenProjects = new Set<string>();
+  const dedupedPlans: SectionPlan[] = rawPlans.map((p) => ({
+    ...p,
+    useProjects: (p.useProjects || []).filter((proj) => {
+      if (seenProjects.has(proj)) return false;
+      seenProjects.add(proj);
+      return true;
+    }),
+  }));
+
+  // 决定实际要生成的章节顺序：保留 sectionTitles 顺序，过滤掉 skip:true 的
   const plansByTitle = new Map<string, SectionPlan>();
-  selection?.sectionPlans?.forEach((p) => plansByTitle.set(p.title, p));
+  dedupedPlans.forEach((p) => plansByTitle.set(p.title, p));
+  const renderTitles = sectionTitles.filter((title) => {
+    const plan = plansByTitle.get(title);
+    return !(plan && plan.skip === true);
+  });
+  const skippedTitles = sectionTitles.filter((t) => !renderTitles.includes(t));
+  if (skippedTitles.length > 0) {
+    console.log("[/api/tailor] skipped sections (selector marked skip:true):", skippedTitles);
+  }
 
   const tailorStart = Date.now();
   const sectionResults = await Promise.allSettled(
-    sectionTitles.map((title) =>
+    renderTitles.map((title) =>
       tailorClient.messages.create({
         model: TAILOR_MODEL,
         max_tokens: 1024,
@@ -245,7 +268,7 @@ export async function POST(request: Request) {
   const sections: { title: string; html: string }[] = [];
   let anyFailed = false;
   sectionResults.forEach((r, i) => {
-    const title = sectionTitles[i];
+    const title = renderTitles[i];
     if (r.status === "rejected") {
       console.error(`[/api/tailor] section "${title}" failed:`, r.reason);
       sections.push({ title, html: "" });
@@ -269,10 +292,11 @@ export async function POST(request: Request) {
 
   console.log("[/api/tailor] tailor parallel usage:", {
     model: TAILOR_MODEL,
-    sections: sectionTitles.length,
+    rendered: renderTitles.length,
+    skipped: skippedTitles.length,
     elapsed_ms: tailorElapsedMs,
     per_section: sectionResults.map((r, i) => ({
-      title: sectionTitles[i],
+      title: renderTitles[i],
       ok: r.status === "fulfilled",
       input: r.status === "fulfilled" ? r.value.usage.input_tokens : null,
       output: r.status === "fulfilled" ? r.value.usage.output_tokens : null,

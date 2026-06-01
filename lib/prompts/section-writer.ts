@@ -77,6 +77,8 @@ export type SectionPlan = {
   maxCharsPerBullet: number;
   useProjects: string[];
   instruction: string;
+  /** 为 true 时下游不渲染此 section（如标题非标准简历章节、或本人暂无该类内容）*/
+  skip?: boolean;
 };
 
 export function buildSectionWriterUserMessage(opts: {

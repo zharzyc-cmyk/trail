@@ -5,28 +5,32 @@ import { getMyProfile } from "@/lib/db/profile";
 import { listMyProjects } from "@/lib/db/projects";
 import { createApplication } from "@/lib/db/applications";
 import {
-  RESUME_TAILORING_SYSTEM,
-  buildStableUserContext,
-  buildVariableUserContext,
-} from "@/lib/prompts/resume-tailoring";
-import {
   PROJECT_SELECTOR_SYSTEM,
   buildProjectSelectorUserMessage,
 } from "@/lib/prompts/project-selector";
+import {
+  SECTION_WRITER_SYSTEM,
+  buildSectionWriterUserMessage,
+} from "@/lib/prompts/section-writer";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Selector 固定 Anthropic Haiku（轻量任务，速度快）
+// Selector: lightweight, always Anthropic Haiku
 const SELECTOR_MODEL = "claude-haiku-4-5-20251001";
-// Tailor 模型由 env 切换：以 deepseek- 开头走 DeepSeek 兼容端点，否则走 Anthropic
-const TAILOR_MODEL = process.env.TAILOR_MODEL || "claude-haiku-4-5-20251001";
+// Tailor (section writer): env-switchable. Default Sonnet 4.6 — now that
+// each call only emits ONE section (~500 token output), Sonnet finishes in
+// ~10-15s per call, and 5 sections run in parallel → max ≈ 15s.
+// Override with TAILOR_MODEL=deepseek-v4-pro / claude-haiku-4-5-20251001 etc.
+const TAILOR_MODEL = process.env.TAILOR_MODEL || "claude-sonnet-4-6";
 
 type Selection = {
   jdAnalysis: string;
   atsKeywords?: string[];
   selectedProjects: string[];
   excludedProjects?: { name: string; reason: string }[];
+  name?: string;
+  contactHtml?: string;
 };
 
 type Body = {
@@ -45,6 +49,37 @@ function createTailorClient(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("服务端未配置 ANTHROPIC_API_KEY");
   return new Anthropic({ apiKey, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
+}
+
+function extractSectionTitles(resumeBase: string): string[] {
+  return resumeBase
+    .split("\n")
+    .filter((line) => /^##\s/.test(line))
+    .map((line) => line.replace(/^##\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function sectionsToMarkdown(sections: { title: string; html: string }[]): string {
+  return sections
+    .map((s) => `## ${s.title}\n\n${stripHtmlToText(s.html)}`)
+    .join("\n\n");
+}
+
+// 简化的 HTML → 纯文本，仅用于 resumeMarkdown 下载场景的兜底
+function stripHtmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "- ")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export async function POST(request: Request) {
@@ -69,7 +104,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "服务端未配置 ANTHROPIC_API_KEY" }, { status: 500 });
   }
 
-  // 配额先 await（超限直接 return，避免浪费 DB 和 LLM 调用）
   let usage: Awaited<ReturnType<typeof tryIncrementUsage>>;
   try {
     usage = await tryIncrementUsage(user.id, user.email);
@@ -84,7 +118,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // profile + projects 并行
   let profile: Awaited<ReturnType<typeof getMyProfile>>;
   let projects: Awaited<ReturnType<typeof listMyProjects>>;
   try {
@@ -95,13 +128,25 @@ export async function POST(request: Request) {
     return Response.json({ error: `读取用户数据失败：${formatDbError(e)}` }, { status: 500 });
   }
 
-  // 阶段 1：Anthropic Haiku 筛选项目 + 抽 ATS 关键词
+  const profileText = profile?.self_profile || "";
+  const resumeBase = profile?.resume_base || "";
+
+  const sectionTitles = extractSectionTitles(resumeBase);
+  if (sectionTitles.length === 0) {
+    await rollbackUsage(user.id, user.email);
+    return Response.json(
+      { error: "基础简历为空或未包含任何 ## 章节标题，请去资料库补全基础简历" },
+      { status: 400 }
+    );
+  }
+
+  // 阶段 1: Anthropic Haiku 一次性输出元信息（jdAnalysis + ATS + 筛项目 + name + contactHtml）
   const selectorClient = new Anthropic({
     apiKey: anthropicKey,
     baseURL: process.env.ANTHROPIC_BASE_URL || undefined,
   });
   let selection: Selection | null = null;
-  if (projects.length > 0) {
+  if (projects.length > 0 || profileText || resumeBase) {
     try {
       const selectorResp = await selectorClient.messages.create({
         model: SELECTOR_MODEL,
@@ -115,6 +160,8 @@ export async function POST(request: Request) {
               companyName: body.company,
               position: body.position,
               projects: projects.map((p) => ({ name: p.name, summary: p.content.slice(0, 90) })),
+              profile: profileText,
+              resumeBase,
             }),
           },
         ],
@@ -130,18 +177,17 @@ export async function POST(request: Request) {
         .trim();
       selection = JSON.parse(stripCodeFence(text)) as Selection;
     } catch (e) {
-      console.error("[/api/tailor] selector failed, fallback to all projects:", e);
+      console.error("[/api/tailor] selector failed:", e);
       selection = null;
     }
   }
 
-  // 选中项目；如果 selection 给的名字全对不上（幻觉）就退回全量
   const filtered = selection
     ? projects.filter((p) => selection!.selectedProjects.includes(p.name))
     : [];
   const effectiveProjects = filtered.length > 0 ? filtered : projects;
 
-  // 阶段 2：TAILOR_MODEL 生成完整简历（可能是 Claude 也可能是 DeepSeek）
+  // 阶段 2: TAILOR_MODEL 并发写每个 section
   let tailorClient: Anthropic;
   try {
     tailorClient = createTailorClient();
@@ -150,110 +196,126 @@ export async function POST(request: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 
-  try {
-    const resp = await tailorClient.messages.create({
-      model: TAILOR_MODEL,
-      max_tokens: 2048,
-      system: [
-        {
-          type: "text",
-          text: RESUME_TAILORING_SYSTEM,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: buildStableUserContext({
-                profile: profile?.self_profile || "",
-                resumeBase: profile?.resume_base || "",
-                projects: effectiveProjects.map((p) => ({ name: p.name, content: p.content })),
-              }),
-              cache_control: { type: "ephemeral" },
-            },
-            {
-              type: "text",
-              text: buildVariableUserContext({
-                jd: body.jd,
-                companyName: body.company,
-                position: body.position,
-                atsKeywords: selection?.atsKeywords,
-              }),
-            },
-          ],
-        },
-      ],
-    });
+  const tailorStart = Date.now();
+  const sectionResults = await Promise.allSettled(
+    sectionTitles.map((title) =>
+      tailorClient.messages.create({
+        model: TAILOR_MODEL,
+        max_tokens: 1024,
+        system: [
+          {
+            type: "text",
+            text: SECTION_WRITER_SYSTEM,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: buildSectionWriterUserMessage({
+                  sectionTitle: title,
+                  profile: profileText,
+                  resumeBase,
+                  projects: effectiveProjects.map((p) => ({ name: p.name, content: p.content })),
+                  jd: body.jd,
+                  companyName: body.company,
+                  position: body.position,
+                  atsKeywords: selection?.atsKeywords,
+                }),
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+          },
+        ],
+      })
+    )
+  );
+  const tailorElapsedMs = Date.now() - tailorStart;
 
-    console.log("[/api/tailor] tailor usage:", {
-      model: TAILOR_MODEL,
-      input: resp.usage.input_tokens,
-      output: resp.usage.output_tokens,
-      cache_read: resp.usage.cache_read_input_tokens,
-      cache_creation: resp.usage.cache_creation_input_tokens,
-      stop_reason: resp.stop_reason,
-      selected: effectiveProjects.length,
-      total: projects.length,
-    });
-
-    const text = resp.content
+  const sections: { title: string; html: string }[] = [];
+  let anyFailed = false;
+  sectionResults.forEach((r, i) => {
+    const title = sectionTitles[i];
+    if (r.status === "rejected") {
+      console.error(`[/api/tailor] section "${title}" failed:`, r.reason);
+      sections.push({ title, html: "" });
+      anyFailed = true;
+      return;
+    }
+    const text = r.value.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("\n")
       .trim();
-
-    let parsed: {
-      jdAnalysis: string;
-      selectedProjects: string[];
-      excludedProjects?: { name: string; reason: string }[];
-      changeLog: string[];
-      resumeMarkdown: string;
-      name?: string;
-      contactHtml?: string;
-      sections?: { title: string; html: string }[];
-    };
     try {
-      parsed = JSON.parse(stripCodeFence(text));
-    } catch {
-      await rollbackUsage(user.id, user.email);
-      return Response.json(
-        { error: "AI 返回的内容不是合法 JSON，请重试", raw: text.slice(0, 500) },
-        { status: 502 }
-      );
+      const parsed = JSON.parse(stripCodeFence(text)) as { html?: string };
+      sections.push({ title, html: (parsed.html || "").trim() });
+    } catch (e) {
+      console.warn(`[/api/tailor] section "${title}" JSON parse failed:`, e);
+      sections.push({ title, html: "" });
+      anyFailed = true;
     }
+  });
 
-    const finalSelectedProjects = selection?.selectedProjects ?? parsed.selectedProjects ?? [];
-    const app = await createApplication({
+  console.log("[/api/tailor] tailor parallel usage:", {
+    model: TAILOR_MODEL,
+    sections: sectionTitles.length,
+    elapsed_ms: tailorElapsedMs,
+    per_section: sectionResults.map((r, i) => ({
+      title: sectionTitles[i],
+      ok: r.status === "fulfilled",
+      input: r.status === "fulfilled" ? r.value.usage.input_tokens : null,
+      output: r.status === "fulfilled" ? r.value.usage.output_tokens : null,
+      cache_read: r.status === "fulfilled" ? r.value.usage.cache_read_input_tokens : null,
+      cache_creation: r.status === "fulfilled" ? r.value.usage.cache_creation_input_tokens : null,
+      stop: r.status === "fulfilled" ? r.value.stop_reason : null,
+    })),
+  });
+
+  if (sections.every((s) => !s.html)) {
+    await rollbackUsage(user.id, user.email);
+    return Response.json(
+      { error: "所有章节生成失败，请重试" },
+      { status: 502 }
+    );
+  }
+
+  const resumeMarkdown = sectionsToMarkdown(sections);
+  const finalSelectedProjects = selection?.selectedProjects ?? [];
+
+  let app: Awaited<ReturnType<typeof createApplication>>;
+  try {
+    app = await createApplication({
       company: body.company,
       position: body.position,
       channel: body.channel || "",
       jd: body.jd,
       selected_projects: finalSelectedProjects,
-      resume_markdown: parsed.resumeMarkdown || "",
-    });
-
-    return Response.json({
-      ...parsed,
-      jdAnalysis: selection?.jdAnalysis ?? parsed.jdAnalysis,
-      atsKeywords: selection?.atsKeywords,
-      selectedProjects: finalSelectedProjects,
-      excludedProjects: selection?.excludedProjects ?? parsed.excludedProjects,
-      photoUrl: profile?.photo_url ?? null,
-      applicationId: app.id,
-      usage: { current: usage.current, limit: usage.limit },
+      resume_markdown: resumeMarkdown,
     });
   } catch (e) {
-    console.error("[/api/tailor] tailor error:", e);
+    console.error("[/api/tailor] createApplication failed:", e);
     await rollbackUsage(user.id, user.email);
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/401|invalid_api_key|authentication/i.test(msg)) {
-      return Response.json({ error: "服务端 API Key 失效，请联系管理员" }, { status: 500 });
-    }
-    return Response.json({ error: `AI 调用失败：${msg}` }, { status: 500 });
+    return Response.json({ error: `保存投递记录失败：${formatDbError(e)}` }, { status: 500 });
   }
+
+  return Response.json({
+    jdAnalysis: selection?.jdAnalysis ?? "",
+    atsKeywords: selection?.atsKeywords,
+    selectedProjects: finalSelectedProjects,
+    excludedProjects: selection?.excludedProjects,
+    changeLog: anyFailed ? ["部分章节生成失败，已留空"] : [],
+    resumeMarkdown,
+    name: selection?.name ?? "",
+    contactHtml: selection?.contactHtml ?? "",
+    sections,
+    photoUrl: profile?.photo_url ?? null,
+    applicationId: app.id,
+    usage: { current: usage.current, limit: usage.limit },
+  });
 }
 
 function formatDbError(e: unknown): string {

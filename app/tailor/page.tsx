@@ -38,6 +38,8 @@ export default function TailorPage() {
     hasProjects: boolean;
     usage: { count: number; limit: number };
   }>({ hasProfile: false, hasProjects: false, usage: { count: 0, limit: 10 } });
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -100,6 +102,17 @@ export default function TailorPage() {
     setResult((prev) => {
       if (!prev || !prev.sections) return prev;
       const sections = prev.sections.map((s, i) => (i === index ? { ...s, html: newHtml } : s));
+      return { ...prev, sections };
+    });
+  }
+
+  function reorderSection(from: number, to: number) {
+    if (from === to) return;
+    setResult((prev) => {
+      if (!prev || !prev.sections) return prev;
+      const sections = [...prev.sections];
+      const [moved] = sections.splice(from, 1);
+      sections.splice(to, 0, moved);
       return { ...prev, sections };
     });
   }
@@ -306,10 +319,24 @@ export default function TailorPage() {
                   )}
                   {result.sections.map((s, i) => (
                     <EditableSection
-                      key={`${result.applicationId || "draft"}-${i}-${s.title}`}
+                      key={`${result.applicationId || "draft"}-${s.title}`}
                       title={s.title}
                       html={s.html || "（本章节生成失败，可手动补充内容）"}
+                      index={i}
+                      draggingIndex={draggingIndex}
+                      dragOverIndex={dragOverIndex}
                       onChange={(newHtml) => handleSectionEdit(i, newHtml)}
+                      onDragStart={(idx) => setDraggingIndex(idx)}
+                      onDragEnter={(idx) => setDragOverIndex(idx)}
+                      onDragEnd={() => {
+                        setDraggingIndex(null);
+                        setDragOverIndex(null);
+                      }}
+                      onDrop={(idx) => {
+                        if (draggingIndex !== null) reorderSection(draggingIndex, idx);
+                        setDraggingIndex(null);
+                        setDragOverIndex(null);
+                      }}
                     />
                   ))}
                 </div>

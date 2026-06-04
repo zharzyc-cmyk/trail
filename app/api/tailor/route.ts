@@ -205,10 +205,15 @@ export async function POST(request: Request) {
   // 1) 拿到 selector 给的 sectionPlans，做代码层硬隔离 + 强制重分类 + skip 处理
   const rawPlans = selection?.sectionPlans ?? [];
 
-  // 1a) 代码层关键词分类：哪些是实习类，哪些是项目类。即便 selector 分错也能纠正。
+  // 1a) 代码层分类：白名单（resumeBase 抽出的实习公司）优先 → 关键词兜底。
+  // 即便 selector 分错也能纠正。
+  const internshipCompanies = extractInternshipCompanies(resumeBase);
+  if (internshipCompanies.length > 0) {
+    console.log("[/api/tailor] internship companies whitelist:", internshipCompanies);
+  }
   const projectKindByName = new Map<string, "internship" | "project" | "unknown">();
   for (const p of projects) {
-    projectKindByName.set(p.name, classifyProjectKind(p.name, p.content));
+    projectKindByName.set(p.name, classifyProjectKind(p.name, p.content, internshipCompanies));
   }
 
   // 1b) 找到实习经历 / 项目经历两个 plan（按 title 字面）
@@ -383,18 +388,45 @@ export async function POST(request: Request) {
   });
 }
 
-// 根据项目名 + content 关键词判断这个项目属于"实习"还是"独立项目"。
-// LLM 偶尔会把实习公司归到项目经历，加这层代码兜底强制纠正。
-// unknown 表示关键词都没命中，让 LLM 自由决定。
-function classifyProjectKind(name: string, content: string): "internship" | "project" | "unknown" {
+// 从 resumeBase markdown 抽取 ## 实习经历 段下面所有 ### 公司名 作为白名单。
+// 这是用户自己声明的"哪些公司是实习"的事实，最可信。
+// regex 兼容多种分隔符（· | ｜ - — ( （）。
+function extractInternshipCompanies(resumeBase: string): string[] {
+  if (!resumeBase) return [];
+  const sectionMatch = resumeBase.match(/##\s*实习经历[\s\S]*?(?=\n##|\n*$)/);
+  if (!sectionMatch) return [];
+  const sectionContent = sectionMatch[0];
+  const companies: string[] = [];
+  const lineRegex = /###\s+([^\n]+)/g;
+  let m;
+  while ((m = lineRegex.exec(sectionContent)) !== null) {
+    const firstChunk = m[1].split(/[·|｜\-—(（]/)[0].trim();
+    if (firstChunk) companies.push(firstChunk);
+  }
+  return companies;
+}
+
+// 判断项目属于"实习"还是"独立项目"。三级优先级：
+// 1) 项目 name / content 命中 resumeBase 抽出的实习公司白名单 → internship（最高优先）
+// 2) 命中 internshipPattern 关键词 → internship
+// 3) 命中 projectPattern 关键词 → project
+// 4) unknown → 让 LLM 自由决定
+function classifyProjectKind(
+  name: string,
+  content: string,
+  internshipCompanies: string[]
+): "internship" | "project" | "unknown" {
+  // 优先级 1：白名单命中（用户在 resumeBase 实习段明确列出的公司）
+  for (const company of internshipCompanies) {
+    if (!company) continue;
+    if (name.includes(company) || content.includes(company)) return "internship";
+  }
+  // 优先级 2-3：关键词
   const text = `${name} ${content}`.toLowerCase();
-  // 实习关键词：公司 + 岗位 title 类
   const internshipPattern =
     /实习生|实习期间|实习经历|担任\s*[^，。\n]*实习|用户运营|内容运营|产品运营|产品助理|品牌运营|渠道运营|社区运营|商务实习|市场实习|运营实习/;
-  // 独立项目类：比赛、论文、独立开发等
   const projectPattern =
     /比赛|大赛|竞赛|获奖|金奖|银奖|铜奖|论文|学术成果|课题|课程项目|独立开发|独立项目|个人项目|开源|hackathon|创业项目|毕业设计|科研/;
-  // 实习更明确（含 "实习" 字样），优先判定
   if (internshipPattern.test(text)) return "internship";
   if (projectPattern.test(text)) return "project";
   return "unknown";

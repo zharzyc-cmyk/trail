@@ -30,31 +30,31 @@ export const PROJECT_SELECTOR_SYSTEM = `你是简历定制助手的「总指挥�
     {
       "title": "教育背景",
       "maxBullets": 2,
-      "maxCharsPerBullet": 65,
+      "maxCharsPerBullet": 55,
       "useProjects": [],
       "instruction": "学校/专业/时间/GPA/主修课程合并，紧凑 1-2 行"
     },
     {
       "title": "实习经历",
-      "maxBullets": 3,
-      "maxCharsPerBullet": 80,
+      "maxBullets": 4,
+      "maxCharsPerBullet": 75,
       "useProjects": ["哈啰春节项目", "韩创科技"],
-      "instruction": "**只 2 段**实习（最贴 JD 的 2 段，其余进 excludedProjects），每段 **3 bullet**，每条 ≤80 字（让段落看起来饱满）。**只能用 useProjects 里的项目**"
+      "instruction": "**只 2 段**实习（最贴 JD 的 2 段，其余进 excludedProjects），每段 **4 bullet**（让段落饱满），每条 ≤75 字。**只能用 useProjects 里的项目**"
     },
     {
       "title": "项目经历",
-      "maxBullets": 3,
-      "maxCharsPerBullet": 65,
+      "maxBullets": 4,
+      "maxCharsPerBullet": 60,
       "useProjects": ["E搭 AI 穿搭"],
-      "instruction": "1 个独立项目（比赛/论文/独立 AI 开发），3 bullet × ≤65 字。**禁止包含实习公司**。如项目库都是实习类，直接 skip:true",
+      "instruction": "1 个独立项目（比赛/论文/独立 AI 开发），**4 bullet** × ≤60 字（饱满不单薄）。**禁止包含实习公司**。如项目库都是实习类，直接 skip:true",
       "skip": false
     },
     {
       "title": "专业技能",
-      "maxBullets": 4,
+      "maxBullets": 3,
       "maxCharsPerBullet": 55,
       "useProjects": [],
-      "instruction": "工具/语言/证书清单，分类紧凑 ≤55 字/行。**禁止重复核心能力的能力陈述**"
+      "instruction": "工具/语言/证书清单，分类紧凑 3 行 × ≤55 字/行。**禁止重复核心能力的能力陈述**"
     }
   ]
 }
@@ -83,28 +83,28 @@ export const PROJECT_SELECTOR_SYSTEM = `你是简历定制助手的「总指挥�
 
 1 页 A4 含 header、章节标题、bullet 文字，**总字符上限约 1150**（实测：超 1180 字就开始溢出第 2 页）。核心能力和实习经历是简历最有信息密度的两块，要给够字数，不能让它们单薄。
 
-### 推荐配额（按页高度 ~250mm 目标反推，约 1250 字总）
+### 推荐配额（按页高度 ~260mm 目标反推，约 1340 字总）
 
-用户明确诉求：**简历看起来饱满，整体页高度约 250mm**（A4 可用 273mm，留 23mm 余量）。1mm 高度 ≈ 5 字，250mm ≈ 1250 字。
+用户明确诉求：**实习/项目段都要饱满**，简历控制接近 1 页 A4 满（页高度 ~260mm，留 13mm 余量）。1mm 高度 ≈ 5 字，260mm ≈ 1300 字。
 
 - **核心能力**：3 条 × ≤50 字 = ~150 字
-- **教育背景**：2 条 × ≤65 字 = ~130 字
-- **实习经历**：2 段 × **3 bullet** × ≤80 字 = ~480 字（每段 ≈ 240 字，饱满不单薄）
-- **项目经历**：1 项目 × 3 bullet × ≤65 字 = ~195 字（如果项目库都是实习类，直接 skip 整段）
-- **专业技能**：4 行 × ≤55 字 = ~220 字
+- **教育背景**：2 条 × ≤55 字 = ~110 字（紧凑一点）
+- **实习经历**：2 段 × **4 bullet** × ≤75 字 = **~600 字**（每段 4 条 bullet、约 300 字，饱满）
+- **项目经历**：1 项目 × **4 bullet** × ≤60 字 = **~240 字**（4 bullet 不单薄）
+- **专业技能**：3 行 × ≤55 字 = ~165 字（精简到 3 行让出空间）
 - **header**（name + contactHtml）：~80 字
-- **总计 ≈ 1255 字 → 页高度 ~246mm** ✓
+- **总计 ≈ 1345 字 → 页高度 ~263mm** ✓（A4 可用 273mm，留 10mm 余）
 
 ### 自检（输出 sectionPlans 前必做）
 
-加总 \`sum(maxBullets × maxCharsPerBullet)\` 所有非 skip section。**目标 1100-1180**（留 80 字给 header，总 1180-1260 字对应页高 235-250mm）。
+加总 \`sum(maxBullets × maxCharsPerBullet)\` 所有非 skip section。**目标 1180-1280**（留 80 字给 header，总 1260-1360 字对应页高 250-265mm）。
 
-- 1100-1180 → 提交（**理想区间**）
-- < 1100 → **回去扩**（实习段 bullet 字数加到 80-85，让内容更饱满）
-- 1180-1260 → 也可以提交（接近 250mm 边界，但仍 1 页内）
-- > 1260 → **必须砍**（优先 skip 项目经历 / 实习段 bullet 字数降到 70）
+- 1180-1280 → 提交（**理想区间，饱满且不溢出**）
+- < 1180 → **回去扩**（实习段 bullet 加到 4 个 × 80 字）
+- 1280-1360 → 也可以提交（接近 273mm 极限但安全）
+- > 1360 → **必须砍**（优先 skip 项目经历 / 实习段降到 3 bullet）
 
-**目标是接近 250mm 不浪费空间，不是越短越好。**
+**目标是接近 1 页满，不是留太多空白。**
 
 ### 实习经历的特别约束
 

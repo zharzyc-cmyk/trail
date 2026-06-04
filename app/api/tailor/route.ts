@@ -202,10 +202,56 @@ export async function POST(request: Request) {
     return Response.json({ error: (e as Error).message }, { status: 500 });
   }
 
-  // 1) 拿到 selector 给的 sectionPlans，做代码层硬隔离 + skip 处理
+  // 1) 拿到 selector 给的 sectionPlans，做代码层硬隔离 + 强制重分类 + skip 处理
   const rawPlans = selection?.sectionPlans ?? [];
-  // useProjects 去重：按 sectionPlans 数组顺序处理，同一项目只能出现在第一个 section
-  // 防止 selector 把"丽人丽妆"同时分配给实习经历和项目经历
+
+  // 1a) 代码层关键词分类：哪些是实习类，哪些是项目类。即便 selector 分错也能纠正。
+  const projectKindByName = new Map<string, "internship" | "project" | "unknown">();
+  for (const p of projects) {
+    projectKindByName.set(p.name, classifyProjectKind(p.name, p.content));
+  }
+
+  // 1b) 找到实习经历 / 项目经历两个 plan（按 title 字面）
+  const internshipPlan = rawPlans.find((p) => p.title.includes("实习"));
+  const projectPlan = rawPlans.find((p) => p.title.includes("项目") && !p.title.includes("实习"));
+
+  // 1c) 把 LLM 在这两段里挑的项目合并去重，按 classifier 强制归类
+  if (internshipPlan && projectPlan) {
+    const allPicked = new Set<string>([
+      ...(internshipPlan.useProjects || []),
+      ...(projectPlan.useProjects || []),
+    ]);
+    const reInternship: string[] = [];
+    const reProject: string[] = [];
+    for (const name of allPicked) {
+      const kind = projectKindByName.get(name);
+      if (kind === "internship") reInternship.push(name);
+      else if (kind === "project") reProject.push(name);
+      else {
+        // unknown：尊重 LLM 原决定。优先实习段
+        if (internshipPlan.useProjects?.includes(name)) reInternship.push(name);
+        else reProject.push(name);
+      }
+    }
+    if (
+      JSON.stringify([...(internshipPlan.useProjects || [])].sort()) !==
+        JSON.stringify([...reInternship].sort()) ||
+      JSON.stringify([...(projectPlan.useProjects || [])].sort()) !==
+        JSON.stringify([...reProject].sort())
+    ) {
+      console.log("[/api/tailor] reclassified by code:", {
+        internship_before: internshipPlan.useProjects,
+        internship_after: reInternship,
+        project_before: projectPlan.useProjects,
+        project_after: reProject,
+      });
+    }
+    internshipPlan.useProjects = reInternship;
+    projectPlan.useProjects = reProject;
+  }
+
+  // 1d) useProjects 去重：按 sectionPlans 数组顺序处理，同一项目只能出现在第一个 section
+  // 防止其他 section 也想用同一个项目
   const seenProjects = new Set<string>();
   const dedupedPlans: SectionPlan[] = rawPlans.map((p) => ({
     ...p,
@@ -335,6 +381,23 @@ export async function POST(request: Request) {
     photoUrl: profile?.photo_url ?? null,
     usage: { current: usage.current, limit: usage.limit },
   });
+}
+
+// 根据项目名 + content 关键词判断这个项目属于"实习"还是"独立项目"。
+// LLM 偶尔会把实习公司归到项目经历，加这层代码兜底强制纠正。
+// unknown 表示关键词都没命中，让 LLM 自由决定。
+function classifyProjectKind(name: string, content: string): "internship" | "project" | "unknown" {
+  const text = `${name} ${content}`.toLowerCase();
+  // 实习关键词：公司 + 岗位 title 类
+  const internshipPattern =
+    /实习生|实习期间|实习经历|担任\s*[^，。\n]*实习|用户运营|内容运营|产品运营|产品助理|品牌运营|渠道运营|社区运营|商务实习|市场实习|运营实习/;
+  // 独立项目类：比赛、论文、独立开发等
+  const projectPattern =
+    /比赛|大赛|竞赛|获奖|金奖|银奖|铜奖|论文|学术成果|课题|课程项目|独立开发|独立项目|个人项目|开源|hackathon|创业项目|毕业设计|科研/;
+  // 实习更明确（含 "实习" 字样），优先判定
+  if (internshipPattern.test(text)) return "internship";
+  if (projectPattern.test(text)) return "project";
+  return "unknown";
 }
 
 function formatDbError(e: unknown): string {

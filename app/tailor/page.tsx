@@ -21,7 +21,6 @@ type TailorResult = {
   contactHtml?: string;
   sections?: { title: string; html: string }[];
   photoUrl?: string | null;
-  applicationId?: string;
   usage?: { current: number; limit: number };
 };
 
@@ -33,6 +32,8 @@ export default function TailorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<TailorResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<{
     hasProfile: boolean;
     hasProjects: boolean;
@@ -59,6 +60,8 @@ export default function TailorPage() {
   async function handleGenerate() {
     setError("");
     setResult(null);
+    setSavedId(null);
+    setSaving(false);
     if (!jd.trim() || !company.trim() || !position.trim()) {
       setError("请填写公司、岗位、JD 三项");
       return;
@@ -104,6 +107,40 @@ export default function TailorPage() {
       const sections = prev.sections.map((s, i) => (i === index ? { ...s, html: newHtml } : s));
       return { ...prev, sections };
     });
+  }
+
+  async function handleSave() {
+    if (!result || !result.sections) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: company.trim(),
+          position: position.trim(),
+          channel: channel.trim(),
+          jd: jd.trim(),
+          selectedProjects: result.selectedProjects,
+          resumeMarkdown: result.resumeMarkdown,
+          sections: result.sections,
+          name: result.name,
+          contactHtml: result.contactHtml,
+          photoUrl: result.photoUrl ?? null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json?.error || `保存失败（HTTP ${res.status}）`);
+        return;
+      }
+      setSavedId(json.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function reorderSection(from: number, to: number) {
@@ -334,6 +371,21 @@ export default function TailorPage() {
                       )}
                     </div>
                   </div>
+                  {savedId ? (
+                    <Link href="/applications">
+                      <Button variant="outline" className="border-green-500 text-green-700 hover:bg-green-50">
+                        已保存 ✓ 查看投递
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={handleSave}
+                      disabled={saving || !result.sections || result.sections.length === 0}
+                    >
+                      {saving ? "保存中..." : "💾 保存到投递记录"}
+                    </Button>
+                  )}
                   <Button
                     onClick={handlePrintPdf}
                     disabled={!result.sections || result.sections.length === 0}
@@ -422,7 +474,7 @@ export default function TailorPage() {
                     <div className="space-y-1 mt-2">
                       {result.sections.map((s, i) => (
                         <EditableSection
-                          key={`${result.applicationId || "draft"}-${s.title}`}
+                          key={`${savedId || "draft"}-${s.title}`}
                           title={s.title}
                           html={s.html || "（本章节生成失败，可手动补充内容）"}
                           index={i}

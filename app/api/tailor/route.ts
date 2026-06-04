@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { tryIncrementUsage, rollbackUsage } from "@/lib/db/usage";
 import { getMyProfile } from "@/lib/db/profile";
 import { listMyProjects } from "@/lib/db/projects";
-import { createApplication } from "@/lib/db/applications";
 import {
   PROJECT_SELECTOR_SYSTEM,
   buildProjectSelectorUserMessage,
@@ -17,8 +16,12 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Selector: lightweight, always Anthropic Haiku
-const SELECTOR_MODEL = "claude-haiku-4-5-20251001";
+// Selector: Sonnet 4.6 for accurate internship/project classification.
+// Haiku 4.5 kept mis-categorizing nuanced project content (e.g. an
+// internship company's sub-project escaping into the standalone project
+// section). Sonnet is slower (~10-15s vs ~3-5s) and pricier (~15x per
+// call) but the absolute cost stays under ¥0.15 per generation.
+const SELECTOR_MODEL = "claude-sonnet-4-6";
 // Tailor (section writer): env-switchable. Default Sonnet 4.6 — now that
 // each call only emits ONE section (~500 token output), Sonnet finishes in
 // ~10-15s per call, and 5 sections run in parallel → max ≈ 15s.
@@ -317,26 +320,8 @@ export async function POST(request: Request) {
   const resumeMarkdown = sectionsToMarkdown(sections);
   const finalSelectedProjects = selection?.selectedProjects ?? [];
 
-  let app: Awaited<ReturnType<typeof createApplication>>;
-  try {
-    app = await createApplication({
-      company: body.company,
-      position: body.position,
-      channel: body.channel || "",
-      jd: body.jd,
-      selected_projects: finalSelectedProjects,
-      resume_markdown: resumeMarkdown,
-      sections,
-      name: selection?.name ?? "",
-      contact_html: selection?.contactHtml ?? "",
-      photo_url: profile?.photo_url ?? null,
-    });
-  } catch (e) {
-    console.error("[/api/tailor] createApplication failed:", e);
-    await rollbackUsage(user.id, user.email);
-    return Response.json({ error: `保存投递记录失败：${formatDbError(e)}` }, { status: 500 });
-  }
-
+  // 延迟保存：不再立刻 createApplication。用户在前端点"保存到投递记录"按钮
+  // 时再 POST /api/applications。重新生成不污染 applications 表。
   return Response.json({
     jdAnalysis: selection?.jdAnalysis ?? "",
     atsKeywords: selection?.atsKeywords,
@@ -348,7 +333,6 @@ export async function POST(request: Request) {
     contactHtml: selection?.contactHtml ?? "",
     sections,
     photoUrl: profile?.photo_url ?? null,
-    applicationId: app.id,
     usage: { current: usage.current, limit: usage.limit },
   });
 }
